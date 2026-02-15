@@ -5,7 +5,6 @@ import {
   View,
   type ColorValue,
   type DimensionValue,
-  type ViewProps,
   processColor,
 } from 'react-native';
 
@@ -19,7 +18,7 @@ const DEFAULT_CORNER_SMOOTHING = 0.6;
 
 export const ResquircleView = React.forwardRef<
   View,
-  ViewProps & ResquircleViewProps
+  ResquircleViewProps
 >((props, ref) => {
   const { children } = props;
   const { nativeProps, contentStyle, restProps } =

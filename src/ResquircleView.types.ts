@@ -1,4 +1,9 @@
-import type { Pressable, ViewProps } from 'react-native';
+import type {
+  PressableProps,
+  StyleProp,
+  ViewProps,
+  ViewStyle,
+} from 'react-native';
 
 type ResquircleProps = {
   /**
@@ -14,13 +19,16 @@ type ResquircleProps = {
   overflow?: 'visible' | 'hidden';
 };
 
-export type ResquircleViewProps = {
-  style?: any;
-} & Omit<ViewProps, 'style'> &
-  ResquircleProps;
+export type ResquircleViewProps = Omit<ViewProps, 'style'> &
+  ResquircleProps & {
+    style?: StyleProp<ViewStyle>;
+  };
 
-export type ResquircleButtonProps = {
-  activeOpacity?: number;
-  style?: any;
-} & Omit<React.ComponentProps<typeof Pressable>, 'style'> &
-  ResquircleProps;
+export type ResquircleButtonProps = Omit<PressableProps, 'style'> &
+  ResquircleProps & {
+    /**
+     * Applied to the underlying `ResquircleView` (not to `Pressable`).
+     */
+    style?: StyleProp<ViewStyle>;
+    activeOpacity?: number;
+  };
