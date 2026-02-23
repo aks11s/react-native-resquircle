@@ -8,10 +8,30 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RenderEffect
+import android.graphics.RenderNode
+import android.graphics.Shader
+import android.os.Build
 import com.facebook.react.views.view.ReactViewGroup
 import kotlin.math.ceil
 import kotlin.math.roundToInt
-import kotlin.math.roundToInt
+
+private data class ShadowKey(
+  val widthPx: Int,
+  val heightPx: Int,
+  val cornerSmoothingBits: Int,
+  val borderRadiusBits: Int,
+  val borderWidthPxBits: Int,
+  val specs: List<ShadowSpecKey>,
+)
+
+private data class ShadowSpecKey(
+  val dxBits: Int,
+  val dyBits: Int,
+  val blurBits: Int,
+  val spreadBits: Int,
+  val colorInt: Int,
+)
 
 class ResquircleView(context: Context) : ReactViewGroup(context) {
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -19,7 +39,18 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   private val path = Path() // fill/border path
   private val clipPath = Path() // inner clip for children
   private var shadowSpecs: List<ShadowSpec> = emptyList()
-  private var shadowRenders: List<ShadowRender> = emptyList()
+  private val shadowRenders: MutableList<ShadowRender> = mutableListOf()
+  private val gpuShadowRenders: MutableList<GpuShadowRender> = mutableListOf()
+  private var lastShadowKey: ShadowKey? = null
+  private val shadowMaskPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+  private val shadowDrawPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    isFilterBitmap = true
+  }
+  private val maxShadowLayers = Int.MAX_VALUE
+  private val tempMatrix = Matrix()
+  private val tempPath = Path()
+  private val tempClipPath = Path()
+  private val gpuShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
   private var cornerSmoothing = 1.0f
   private var borderColor = 0xFF000000.toInt()
@@ -44,6 +75,14 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     val bitmap: Bitmap,
     val drawX: Float,
     val drawY: Float,
+    val colorInt: Int,
+  )
+
+  private data class GpuShadowRender(
+    val node: RenderNode,
+    val drawX: Float,
+    val drawY: Float,
+    val scaleUp: Float,
   )
 
   override fun dispatchDraw(canvas: Canvas) {
@@ -62,8 +101,26 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     super.onDraw(canvas)
 
     // Draw shadows behind fill/border (can extend beyond bounds).
-    for (render in shadowRenders) {
-      canvas.drawBitmap(render.bitmap, render.drawX, render.drawY, null)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      if (gpuShadowRenders.isNotEmpty()) {
+        for (render in gpuShadowRenders) {
+          canvas.save()
+          if (render.scaleUp != 1f) {
+            canvas.translate(render.drawX / render.scaleUp, render.drawY / render.scaleUp)
+            canvas.scale(render.scaleUp, render.scaleUp)
+          } else {
+            canvas.translate(render.drawX, render.drawY)
+          }
+          canvas.drawRenderNode(render.node)
+          canvas.restore()
+        }
+      }
+    } else {
+      // GPU-only mode: no shadow rendering on < API 31.
+      for (render in shadowRenders) {
+        shadowDrawPaint.color = render.colorInt
+        canvas.drawBitmap(render.bitmap, render.drawX, render.drawY, shadowDrawPaint)
+      }
     }
 
     paint.color = backgroundColorInt
@@ -79,6 +136,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
 
   override fun onSizeChanged(newWidth: Int, newHeight: Int, oldWidth: Int, oldHeight: Int) {
     super.onSizeChanged(newWidth, newHeight, oldWidth, oldHeight)
+    if (newWidth == oldWidth && newHeight == oldHeight) return
     resetPaths(newWidth.toFloat(), newHeight.toFloat())
   }
 
@@ -88,7 +146,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     val pixelBorderWidth = Utils.convertDpToPixel(this.borderWidth, context)
     val baseRadius = borderRadius + (pixelBorderWidth / 2f)
 
-    rebuildShadowBitmaps(width, height, baseRadius)
+    updateShadowsIfNeeded(width, height, pixelBorderWidth, baseRadius)
 
     val squirclePath =
       SquirclePath(
@@ -100,11 +158,13 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
 
     val shiftX = pixelBorderWidth / 2f
     val shiftY = pixelBorderWidth / 2f
-    val translationMatrix = Matrix().apply { setTranslate(shiftX, shiftY) }
-    val translatedPath = Path().apply { squirclePath.transform(translationMatrix, this) }
+    tempMatrix.reset()
+    tempMatrix.setTranslate(shiftX, shiftY)
+    tempPath.reset()
+    squirclePath.transform(tempMatrix, tempPath)
 
     path.reset()
-    path.addPath(translatedPath)
+    path.addPath(tempPath)
 
     // Clip children to the inner edge of the border stroke.
     val innerInset = pixelBorderWidth
@@ -112,23 +172,82 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     val innerW = (width - 2f * innerInset).coerceAtLeast(0f)
     val innerH = (height - 2f * innerInset).coerceAtLeast(0f)
     val innerSquircle = SquirclePath(innerW, innerH, innerRadius, cornerSmoothing)
-    val innerMatrix = Matrix().apply { setTranslate(innerInset, innerInset) }
-    val translatedInner = Path().apply { innerSquircle.transform(innerMatrix, this) }
+    tempMatrix.reset()
+    tempMatrix.setTranslate(innerInset, innerInset)
+    tempClipPath.reset()
+    innerSquircle.transform(tempMatrix, tempClipPath)
     clipPath.reset()
-    clipPath.addPath(translatedInner)
+    clipPath.addPath(tempClipPath)
   }
 
-  private fun rebuildShadowBitmaps(width: Float, height: Float, baseRadius: Float) {
-    // Recycle old bitmaps to avoid leaking.
+  private fun clearShadowRenders() {
     for (r in shadowRenders) {
       if (!r.bitmap.isRecycled) r.bitmap.recycle()
     }
-    shadowRenders = emptyList()
+    shadowRenders.clear()
+    lastShadowKey = null
+  }
 
+  private fun clearGpuShadowRenders() {
+    gpuShadowRenders.clear()
+  }
+
+  private fun updateShadowsIfNeeded(
+    width: Float,
+    height: Float,
+    pixelBorderWidth: Float,
+    baseRadius: Float,
+  ) {
+    if (width <= 0f || height <= 0f) return
+    if (shadowSpecs.isEmpty()) {
+      if (shadowRenders.isNotEmpty()) clearShadowRenders()
+      if (gpuShadowRenders.isNotEmpty()) clearGpuShadowRenders()
+      return
+    }
+
+    val keySpecs =
+      shadowSpecs.take(maxShadowLayers).map {
+        ShadowSpecKey(
+          dxBits = it.dxPx.toRawBits(),
+          dyBits = it.dyPx.toRawBits(),
+          blurBits = it.blurPx.toRawBits(),
+          spreadBits = it.spreadPx.toRawBits(),
+          colorInt = it.colorInt,
+        )
+      }
+
+    val key =
+      ShadowKey(
+        widthPx = width.roundToInt(),
+        heightPx = height.roundToInt(),
+        cornerSmoothingBits = cornerSmoothing.toRawBits(),
+        borderRadiusBits = borderRadius.toRawBits(),
+        borderWidthPxBits = pixelBorderWidth.toRawBits(),
+        specs = keySpecs,
+      )
+
+    if (key == lastShadowKey) return
+    lastShadowKey = key
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      rebuildGpuShadowNodes(width, height, baseRadius, shadowSpecs.take(maxShadowLayers))
+      clearShadowRenders()
+    } else {
+      // GPU-only mode: no shadows on < API 31.
+      clearGpuShadowRenders()
+      clearShadowRenders()
+    }
+  }
+
+  private fun rebuildShadowBitmaps(width: Float, height: Float, baseRadius: Float) {
     if (shadowSpecs.isEmpty()) return
 
-    shadowRenders =
-      shadowSpecs.mapNotNull { spec ->
+    val old = shadowRenders.toList()
+    shadowRenders.clear()
+
+    // Reuse a single Canvas instance to avoid allocations.
+    val bitmapCanvas = Canvas()
+
+    shadowSpecs.forEachIndexed { index, spec ->
         val spread = spec.spreadPx
         val blur = spec.blurPx
 
@@ -142,36 +261,144 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
         val bmpW = (width + 2f * pad).roundToInt().coerceAtLeast(1)
         val bmpH = (height + 2f * pad).roundToInt().coerceAtLeast(1)
 
+        val reused = old.getOrNull(index)?.bitmap
         val bitmap =
-          try {
-            Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888)
-          } catch (_: Throwable) {
-            return@mapNotNull null
+          if (reused != null &&
+            !reused.isRecycled &&
+            reused.width == bmpW &&
+            reused.height == bmpH &&
+            reused.config == Bitmap.Config.ALPHA_8
+          ) {
+            reused.eraseColor(Color.TRANSPARENT)
+            reused
+          } else {
+            // Recycle old slot bitmap (if any) before replacing.
+            if (reused != null && !reused.isRecycled) reused.recycle()
+            try {
+              Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ALPHA_8)
+            } catch (_: Throwable) {
+              return@forEachIndexed
+            }
           }
 
-        val c = Canvas(bitmap)
-        val p =
-          Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            isDither = true
-            style = Paint.Style.FILL
-            color = spec.colorInt
-            maskFilter = if (blur > 0f) BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL) else null
-          }
+        bitmapCanvas.setBitmap(bitmap)
+
+        // Draw an alpha mask (white) with blur. Color is applied at draw time.
+        shadowMaskPaint.reset()
+        shadowMaskPaint.isAntiAlias = true
+        shadowMaskPaint.isDither = true
+        shadowMaskPaint.style = Paint.Style.FILL
+        shadowMaskPaint.color = Color.WHITE
+        shadowMaskPaint.alpha = 0xFF
+        shadowMaskPaint.maskFilter =
+          if (blur > 0f) BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL) else null
 
         val squircle = SquirclePath(innerW, innerH, radius, cornerSmoothing)
         val m = Matrix().apply { setTranslate((pad - spread), (pad - spread)) }
         val shadowPath = Path().apply { squircle.transform(m, this) }
-        c.drawPath(shadowPath, p)
+        bitmapCanvas.drawPath(shadowPath, shadowMaskPaint)
 
-        ShadowRender(
-          bitmap = bitmap,
+        shadowRenders.add(
+          ShadowRender(
+            bitmap = bitmap,
+            drawX = (-pad + spec.dxPx),
+            drawY = (-pad + spec.dyPx),
+            colorInt = spec.colorInt,
+          )
+        )
+    }
+
+    // Recycle any remaining old bitmaps that were not reused.
+    for (i in shadowSpecs.size until old.size) {
+      val b = old[i].bitmap
+      if (!b.isRecycled) b.recycle()
+    }
+  }
+
+  private fun rebuildGpuShadowNodes(
+    width: Float,
+    height: Float,
+    baseRadius: Float,
+    effectiveSpecs: List<ShadowSpec>,
+  ) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    if (effectiveSpecs.isEmpty()) return
+
+    val old = gpuShadowRenders.toList()
+    gpuShadowRenders.clear()
+
+    effectiveSpecs.forEachIndexed { index, spec ->
+      val spread = spec.spreadPx
+      val blur = spec.blurPx
+
+      // Padding around the content to fit blur + spread.
+      val pad = ceil((kotlin.math.abs(spread) + blur).toDouble()).toInt() + 2
+
+      val innerW = (width + 2f * spread).coerceAtLeast(0f)
+      val innerH = (height + 2f * spread).coerceAtLeast(0f)
+      val radius = (baseRadius + spread).coerceAtLeast(0f)
+
+      val scaleUp = 1f
+      val nodeW = (width + 2f * pad).roundToInt().coerceAtLeast(1)
+      val nodeH = (height + 2f * pad).roundToInt().coerceAtLeast(1)
+
+      val node =
+        old.getOrNull(index)?.node ?: RenderNode("ResquircleShadow$index")
+      node.setPosition(0, 0, nodeW, nodeH)
+
+      val c = node.beginRecording(nodeW, nodeH)
+      gpuShadowPaint.reset()
+      gpuShadowPaint.isAntiAlias = true
+      gpuShadowPaint.style = Paint.Style.FILL
+      gpuShadowPaint.color = spec.colorInt
+
+      val squircle = SquirclePath(innerW, innerH, radius, cornerSmoothing)
+      tempMatrix.reset()
+      tempMatrix.setTranslate((pad - spread), (pad - spread))
+      tempPath.reset()
+      squircle.transform(tempMatrix, tempPath)
+      c.drawPath(tempPath, gpuShadowPaint)
+
+      node.endRecording()
+
+      if (blur > 0f) {
+        node.setRenderEffect(
+          RenderEffect.createBlurEffect(blur, blur, Shader.TileMode.CLAMP)
+        )
+      } else {
+        node.setRenderEffect(null)
+      }
+
+      gpuShadowRenders.add(
+        GpuShadowRender(
+          node = node,
           drawX = (-pad + spec.dxPx),
           drawY = (-pad + spec.dyPx),
+          scaleUp = scaleUp,
         )
-      }
+      )
+    }
+
+    // Release unused nodes from the previous frame list.
+    for (i in effectiveSpecs.size until old.size) {
+      val n = old[i].node
+      n.setRenderEffect(null)
+      n.setPosition(0, 0, 0, 0)
+      n.discardDisplayList()
+    }
+  }
+
+  // Intentionally no GPU clamping/area cutoff for maximum quality.
+
+  override fun onDetachedFromWindow() {
+    // Ensure we free native heap allocations held by Bitmaps.
+    clearShadowRenders()
+    clearGpuShadowRenders()
+    super.onDetachedFromWindow()
   }
 
   fun setCornerSmoothing(c: Float) {
+    if (c == cornerSmoothing) return
     cornerSmoothing = c
     resetPaths(width.toFloat(), height.toFloat())
     invalidate()
@@ -179,6 +406,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
 
   fun setSquircleBorderRadius(b: Float) {
     val pixelRadius = Utils.convertDpToPixel(b, context)
+    if (pixelRadius == borderRadius) return
     borderRadius = pixelRadius
     resetPaths(width.toFloat(), height.toFloat())
     invalidate()
@@ -191,25 +419,28 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   }
 
   fun setBorderColor(color: Int) {
+    if (color == borderColor) return
     borderColor = color
     invalidate()
   }
 
   fun setBorderWidth(width: Float) {
+    if (width == borderWidth) return
     borderWidth = width
     resetPaths(this.width.toFloat(), this.height.toFloat())
     invalidate()
   }
 
   fun setSquircleBoxShadow(value: String?) {
+    if (value == boxShadowString) return
     boxShadowString = value
     rebuildShadowSpecs()
     invalidate()
   }
 
   fun setClipContent(value: Boolean) {
+    if (value == clipContent) return
     clipContent = value
-    resetPaths(width.toFloat(), height.toFloat())
     invalidate()
   }
 
@@ -217,13 +448,18 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     val s = boxShadowString?.trim()
     if (s.isNullOrEmpty()) {
       shadowSpecs = emptyList()
-      // Reset cached bitmaps.
-      rebuildShadowBitmaps(width.toFloat(), height.toFloat(), borderRadius + (Utils.convertDpToPixel(borderWidth, context) / 2f))
+      clearShadowRenders()
       return
     }
 
     shadowSpecs = parseBoxShadow(s)
-    resetPaths(width.toFloat(), height.toFloat())
+    val w = width.toFloat()
+    val h = height.toFloat()
+    if (w > 0f && h > 0f) {
+      val pixelBorderWidth = Utils.convertDpToPixel(this.borderWidth, context)
+      val baseRadius = borderRadius + (pixelBorderWidth / 2f)
+      updateShadowsIfNeeded(w, h, pixelBorderWidth, baseRadius)
+    }
   }
 
   private data class ShadowSpec(
