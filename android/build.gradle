@@ -1,3 +1,40 @@
+def safeAppExtGet(prop, fallback) {
+  def appProject = rootProject.allprojects.find { it.plugins.hasPlugin('com.android.application') }
+  appProject?.ext?.has(prop) ? appProject.ext.get(prop) : fallback
+}
+
+def resolveReactNativeDirectory() {
+  def reactNativeLocation = safeAppExtGet("REACT_NATIVE_NODE_MODULES_DIR", null)
+  if (reactNativeLocation != null) {
+    return file(reactNativeLocation)
+  }
+  def reactNativePackage = file(providers.exec {
+    workingDir(rootDir)
+    commandLine("node", "--print", "require.resolve('react-native/package.json')")
+  }.standardOutput.asText.get().trim())
+  if (reactNativePackage.exists()) {
+    return reactNativePackage.parentFile
+  }
+  throw new GradleException("[Resquircle] Unable to resolve react-native location in node_modules")
+}
+
+def getReactNativeVersion() {
+  def reactNativeRootDir = resolveReactNativeDirectory()
+  def reactProperties = new Properties()
+  file("$reactNativeRootDir/ReactAndroid/gradle.properties").withInputStream { reactProperties.load(it) }
+  return reactProperties.getProperty("VERSION_NAME")
+}
+
+def getReactNativeMinorVersion() {
+  def v = getReactNativeVersion()
+  if (v == null) return 83
+  if (v.startsWith("0.0.0-")) return 1000
+  def parts = v.split("\\.")
+  return parts.length > 1 ? parts[1].toInteger() : 83
+}
+
+def REACT_NATIVE_MINOR_VERSION = getReactNativeMinorVersion()
+
 buildscript {
   ext.Resquircle = [
     kotlinVersion: "2.0.21",
@@ -59,6 +96,16 @@ android {
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_1_8
     targetCompatibility JavaVersion.VERSION_1_8
+  }
+
+  sourceSets {
+    main {
+      if (REACT_NATIVE_MINOR_VERSION < 83) {
+        java.srcDirs += ["src/beforeRn83/java"]
+      } else {
+        java.srcDirs += ["src/fromRn83/java"]
+      }
+    }
   }
 }
 
