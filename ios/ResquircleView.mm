@@ -93,6 +93,30 @@ using namespace facebook::react;
         _shadowView.borderRadius = r;
     }
 
+    if (oldViewProps.squircleTopLeftRadius != newViewProps.squircleTopLeftRadius) {
+        CGFloat r = newViewProps.squircleTopLeftRadius;
+        _contentView.squircleTopLeftRadius = r;
+        _shadowView.squircleTopLeftRadius = r;
+    }
+
+    if (oldViewProps.squircleTopRightRadius != newViewProps.squircleTopRightRadius) {
+        CGFloat r = newViewProps.squircleTopRightRadius;
+        _contentView.squircleTopRightRadius = r;
+        _shadowView.squircleTopRightRadius = r;
+    }
+
+    if (oldViewProps.squircleBottomRightRadius != newViewProps.squircleBottomRightRadius) {
+        CGFloat r = newViewProps.squircleBottomRightRadius;
+        _contentView.squircleBottomRightRadius = r;
+        _shadowView.squircleBottomRightRadius = r;
+    }
+
+    if (oldViewProps.squircleBottomLeftRadius != newViewProps.squircleBottomLeftRadius) {
+        CGFloat r = newViewProps.squircleBottomLeftRadius;
+        _contentView.squircleBottomLeftRadius = r;
+        _shadowView.squircleBottomLeftRadius = r;
+    }
+
     if (oldViewProps.cornerSmoothing != newViewProps.cornerSmoothing) {
         CGFloat s = newViewProps.cornerSmoothing;
         _contentView.cornerSmoothing = s;
@@ -112,6 +136,32 @@ using namespace facebook::react;
         // Clip only content (and its children). Keep shadow un-clipped.
         _contentView.clipContent = newViewProps.clipContent;
         _shadowView.clipContent = NO;
+    }
+
+    if (oldViewProps.squircleOutlineColor != newViewProps.squircleOutlineColor) {
+        UIColor *c = RCTUIColorFromSharedColor(newViewProps.squircleOutlineColor);
+        _contentView.squircleOutlineColor = c ?: UIColor.clearColor;
+        _shadowView.squircleOutlineColor = UIColor.clearColor;
+    }
+
+    if (oldViewProps.squircleOutlineWidth != newViewProps.squircleOutlineWidth) {
+        CGFloat w = newViewProps.squircleOutlineWidth;
+        _contentView.squircleOutlineWidth = w;
+        _shadowView.squircleOutlineWidth = 0;
+    }
+
+    if (oldViewProps.squircleOutlineOffset != newViewProps.squircleOutlineOffset) {
+        CGFloat o = newViewProps.squircleOutlineOffset;
+        _contentView.squircleOutlineOffset = o;
+        _shadowView.squircleOutlineOffset = 0;
+    }
+
+    if (oldViewProps.squircleOutlineStyle != newViewProps.squircleOutlineStyle) {
+        NSString *s = newViewProps.squircleOutlineStyle.empty()
+          ? @"solid"
+          : [NSString stringWithUTF8String:newViewProps.squircleOutlineStyle.c_str()];
+        _contentView.squircleOutlineStyle = s;
+        _shadowView.squircleOutlineStyle = @"solid";
     }
 
     [super updateProps:props oldProps:oldProps];

@@ -4,6 +4,7 @@ import UIKit
 public final class ResquircleDrawingView: UIView {
   private let fillLayer = CAShapeLayer()
   private let borderLayer = CAShapeLayer()
+  private let outlineLayer = CAShapeLayer()
   private var shadowLayers: [CAShapeLayer] = []
   private var shadowSpecs: [ShadowSpec] = []
   private var clippingMaskLayer: CAShapeLayer? = nil
@@ -21,14 +22,30 @@ public final class ResquircleDrawingView: UIView {
     }
   }
 
+  private struct CornerRadii: Equatable {
+    var topLeft: CGFloat
+    var topRight: CGFloat
+    var bottomRight: CGFloat
+    var bottomLeft: CGFloat
+  }
+
   private var radius: CGFloat = 0
   private var cornerSmoothingInternal: CGFloat = 0
   private var didReceiveBorderRadiusProp: Bool = false
+  private var didReceiveCornerRadiiProp: Bool = false
+  private var cornerRadii: CornerRadii = .init(topLeft: 0, topRight: 0, bottomRight: 0, bottomLeft: 0)
+  private var outlineColorInternal: UIColor = .clear
+  private var outlineWidthInternal: CGFloat = 0
+  private var outlineOffsetInternal: CGFloat = 0
+  private var outlineStyleInternal: String = "solid"
 
   private struct PathCacheKey: Equatable {
     let width: CGFloat
     let height: CGFloat
-    let radius: CGFloat
+    let topLeftRadius: CGFloat
+    let topRightRadius: CGFloat
+    let bottomRightRadius: CGFloat
+    let bottomLeftRadius: CGFloat
     let cornerSmoothing: CGFloat
     let lineWidth: CGFloat
   }
@@ -58,6 +75,38 @@ public final class ResquircleDrawingView: UIView {
 
   @objc public var borderRadius: CGFloat = 0 {
     didSet { setRadius(borderRadius) }
+  }
+
+  @objc public var squircleTopLeftRadius: CGFloat = 0 {
+    didSet { setCornerRadius(topLeft: squircleTopLeftRadius) }
+  }
+
+  @objc public var squircleTopRightRadius: CGFloat = 0 {
+    didSet { setCornerRadius(topRight: squircleTopRightRadius) }
+  }
+
+  @objc public var squircleBottomRightRadius: CGFloat = 0 {
+    didSet { setCornerRadius(bottomRight: squircleBottomRightRadius) }
+  }
+
+  @objc public var squircleBottomLeftRadius: CGFloat = 0 {
+    didSet { setCornerRadius(bottomLeft: squircleBottomLeftRadius) }
+  }
+
+  @objc public var squircleOutlineColor: UIColor = .clear {
+    didSet { setOutlineColor(squircleOutlineColor) }
+  }
+
+  @objc public var squircleOutlineWidth: CGFloat = 0 {
+    didSet { setOutlineWidth(squircleOutlineWidth) }
+  }
+
+  @objc public var squircleOutlineOffset: CGFloat = 0 {
+    didSet { setOutlineOffset(squircleOutlineOffset) }
+  }
+
+  @objc public var squircleOutlineStyle: NSString? = "solid" {
+    didSet { setOutlineStyle(squircleOutlineStyle as String? ?? "solid") }
   }
 
   /// 0..1
@@ -97,6 +146,14 @@ public final class ResquircleDrawingView: UIView {
     // Border layer should only stroke (default fill is black -> would cover children).
     borderLayer.fillColor = nil
 
+    outlineLayer.contentsScale = UIScreen.main.scale
+    outlineLayer.lineJoin = .round
+    outlineLayer.lineCap = .round
+    outlineLayer.allowsEdgeAntialiasing = true
+    outlineLayer.fillColor = nil
+    outlineLayer.strokeColor = UIColor.clear.cgColor
+    outlineLayer.lineWidth = 0
+
     // Host Fabric children in a dedicated container so we can clip ONLY children,
     // while keeping fill/border layers un-clipped and borders always on top.
     childrenContainer.backgroundColor = .clear
@@ -109,6 +166,8 @@ public final class ResquircleDrawingView: UIView {
     layer.insertSublayer(fillLayer, at: 0)
     // Border should always be on top of children.
     layer.addSublayer(borderLayer)
+    // Outline should be above border.
+    layer.addSublayer(outlineLayer)
 
     let opacity: Float = drawSquircleLayer ? 1 : 0
     fillLayer.opacity = opacity
@@ -132,12 +191,20 @@ public final class ResquircleDrawingView: UIView {
       fillLayer.removeFromSuperlayer()
       layer.insertSublayer(fillLayer, at: 0)
     }
-    // Keep border on top of children.
-    if borderLayer.superlayer === layer,
+    // Keep outline at the very top, border just below it.
+    if outlineLayer.superlayer === layer,
        let sublayers = layer.sublayers,
-       sublayers.last !== borderLayer {
+       sublayers.last !== outlineLayer {
+      outlineLayer.removeFromSuperlayer()
+      layer.addSublayer(outlineLayer)
+    }
+    if borderLayer.superlayer === layer {
       borderLayer.removeFromSuperlayer()
-      layer.addSublayer(borderLayer)
+      if outlineLayer.superlayer === layer {
+        layer.insertSublayer(borderLayer, below: outlineLayer)
+      } else {
+        layer.addSublayer(borderLayer)
+      }
     }
 
     // If, for any reason, the Fabric prop didn't arrive, fall back to the parent
@@ -151,23 +218,36 @@ public final class ResquircleDrawingView: UIView {
 
     fillLayer.frame = bounds
     borderLayer.frame = bounds
+    outlineLayer.frame = bounds
 
     let path = cachedFillPath()
     fillLayer.path = path
     borderLayer.path = path
     updateShadowPaths()
+    updateOutlinePath()
 
     // Keep the clipping mask in sync with bounds/radius changes.
     updateClippingMaskIfNeeded()
   }
 
+  private func effectiveCornerRadii() -> CornerRadii {
+    if didReceiveCornerRadiiProp {
+      return cornerRadii
+    }
+    return .init(topLeft: radius, topRight: radius, bottomRight: radius, bottomLeft: radius)
+  }
+
   private func cachedFillPath() -> CGPath {
     let borderWidth = borderLayer.lineWidth
+    let radii = effectiveCornerRadii()
     let key =
       PathCacheKey(
         width: bounds.width,
         height: bounds.height,
-        radius: radius,
+        topLeftRadius: radii.topLeft,
+        topRightRadius: radii.topRight,
+        bottomRightRadius: radii.bottomRight,
+        bottomLeftRadius: radii.bottomLeft,
         cornerSmoothing: cornerSmoothingInternal,
         lineWidth: borderWidth
       )
@@ -175,26 +255,37 @@ public final class ResquircleDrawingView: UIView {
       return path
     }
     // Path inset by borderWidth so border stroke stays inside bounds.
-    let path = createSquirclePath(insetBy: borderWidth, radius: radius)
+    let path = createSquirclePath(insetBy: borderWidth, radii: radii)
     lastFillKey = key
     lastFillPath = path
     return path
   }
 
   private func cachedOuterPath() -> CGPath {
-    let baseRadius = radius + (borderLayer.lineWidth / 2)
+    let borderOuterInset = borderLayer.lineWidth / 2
+    let r = effectiveCornerRadii()
+    let outer =
+      CornerRadii(
+        topLeft: r.topLeft + borderOuterInset,
+        topRight: r.topRight + borderOuterInset,
+        bottomRight: r.bottomRight + borderOuterInset,
+        bottomLeft: r.bottomLeft + borderOuterInset
+      )
     let key =
       PathCacheKey(
         width: bounds.width,
         height: bounds.height,
-        radius: baseRadius,
+        topLeftRadius: outer.topLeft,
+        topRightRadius: outer.topRight,
+        bottomRightRadius: outer.bottomRight,
+        bottomLeftRadius: outer.bottomLeft,
         cornerSmoothing: cornerSmoothingInternal,
         lineWidth: 0
       )
     if key == lastOuterKey, let path = lastOuterPath {
       return path
     }
-    let path = createSquirclePath(insetBy: 0, radius: baseRadius)
+    let path = createSquirclePath(insetBy: 0, radii: outer)
     lastOuterKey = key
     lastOuterPath = path
     return path
@@ -207,7 +298,7 @@ public final class ResquircleDrawingView: UIView {
     lastOuterPath = nil
   }
 
-  private func createSquirclePath(insetBy inset: CGFloat, radius: CGFloat) -> CGPath {
+  private func createSquirclePath(insetBy inset: CGFloat, radii: CornerRadii) -> CGPath {
     let width: CGFloat = bounds.width
     let height: CGFloat = bounds.height
 
@@ -219,7 +310,10 @@ public final class ResquircleDrawingView: UIView {
       SquirclePath.create(
         width: width - inset,
         height: height - inset,
-        radius: radius,
+        topLeftRadius: radii.topLeft,
+        topRightRadius: radii.topRight,
+        bottomRightRadius: radii.bottomRight,
+        bottomLeftRadius: radii.bottomLeft,
         cornerSmoothing: cornerSmoothingInternal
       )
 
@@ -262,6 +356,66 @@ public final class ResquircleDrawingView: UIView {
     setNeedsLayout()
   }
 
+  private func setCornerRadius(
+    topLeft: CGFloat? = nil,
+    topRight: CGFloat? = nil,
+    bottomRight: CGFloat? = nil,
+    bottomLeft: CGFloat? = nil
+  ) {
+    var r = cornerRadii
+    if let v = topLeft { r.topLeft = v }
+    if let v = topRight { r.topRight = v }
+    if let v = bottomRight { r.bottomRight = v }
+    if let v = bottomLeft { r.bottomLeft = v }
+    cornerRadii = r
+    didReceiveCornerRadiiProp = true
+    invalidatePathCache()
+    setNeedsLayout()
+  }
+
+  private func setOutlineColor(_ color: UIColor) {
+    outlineColorInternal = color
+    updateOutlineAppearance()
+    setNeedsLayout()
+  }
+
+  private func setOutlineWidth(_ width: CGFloat) {
+    outlineWidthInternal = max(0, width)
+    updateOutlineAppearance()
+    setNeedsLayout()
+  }
+
+  private func setOutlineOffset(_ offset: CGFloat) {
+    outlineOffsetInternal = offset
+    setNeedsLayout()
+  }
+
+  private func setOutlineStyle(_ style: String) {
+    outlineStyleInternal = style
+    updateOutlineAppearance()
+    setNeedsLayout()
+  }
+
+  private func updateOutlineAppearance() {
+    outlineLayer.strokeColor = outlineColorInternal.cgColor
+    outlineLayer.lineWidth = outlineWidthInternal
+
+    let w = max(1, outlineWidthInternal)
+    switch outlineStyleInternal {
+    case "dashed":
+      outlineLayer.lineCap = .butt
+      outlineLayer.lineDashPattern = [NSNumber(value: Float(3 * w)), NSNumber(value: Float(2 * w))]
+    case "dotted":
+      outlineLayer.lineCap = .round
+      outlineLayer.lineDashPattern = [NSNumber(value: Float(w)), NSNumber(value: Float(2 * w))]
+    default:
+      outlineLayer.lineCap = .round
+      outlineLayer.lineDashPattern = nil
+    }
+
+    outlineLayer.opacity = outlineWidthInternal > 0 ? 1 : 0
+  }
+
   private func updateClipping() {
     if clipContent {
       if clippingMaskLayer == nil {
@@ -284,11 +438,39 @@ public final class ResquircleDrawingView: UIView {
 
     let borderWidth = borderLayer.lineWidth
     let inset = max(0, 2 * borderWidth)
-    let innerRadius = max(0, radius - borderWidth)
+    let r = effectiveCornerRadii()
+    let innerRadii =
+      CornerRadii(
+        topLeft: max(0, r.topLeft - borderWidth),
+        topRight: max(0, r.topRight - borderWidth),
+        bottomRight: max(0, r.bottomRight - borderWidth),
+        bottomLeft: max(0, r.bottomLeft - borderWidth)
+      )
 
     maskLayer.frame = childrenContainer.bounds
     // Clip children to the INNER squircle so borders remain visible and not covered.
-    maskLayer.path = createSquirclePath(insetBy: inset, radius: innerRadius)
+    maskLayer.path = createSquirclePath(insetBy: inset, radii: innerRadii)
+  }
+
+  private func updateOutlinePath() {
+    guard outlineWidthInternal > 0 else {
+      outlineLayer.path = nil
+      return
+    }
+
+    let borderOuterInset = borderLayer.lineWidth / 2
+    let outset = borderOuterInset + outlineOffsetInternal + (outlineWidthInternal / 2)
+    let r = effectiveCornerRadii()
+    let outlineRadii =
+      CornerRadii(
+        topLeft: r.topLeft + outset,
+        topRight: r.topRight + outset,
+        bottomRight: r.bottomRight + outset,
+        bottomLeft: r.bottomLeft + outset
+      )
+
+    // Expand the path by `outset` on each side -> insetBy = -2*outset.
+    outlineLayer.path = createSquirclePath(insetBy: -2 * outset, radii: outlineRadii)
   }
 }
 
@@ -337,8 +519,16 @@ private extension ResquircleDrawingView {
   func updateShadowPaths() {
     guard !shadowLayers.isEmpty, shadowLayers.count == shadowSpecs.count else { return }
 
-    let baseRadius = radius + (borderLayer.lineWidth / 2)
     let basePath = cachedOuterPath()
+    let r = effectiveCornerRadii()
+    let borderOuterInset = borderLayer.lineWidth / 2
+    let baseRadii =
+      CornerRadii(
+        topLeft: r.topLeft + borderOuterInset,
+        topRight: r.topRight + borderOuterInset,
+        bottomRight: r.bottomRight + borderOuterInset,
+        bottomLeft: r.bottomLeft + borderOuterInset
+      )
 
     for (index, l) in shadowLayers.enumerated() {
       let spec = shadowSpecs[index]
@@ -347,7 +537,14 @@ private extension ResquircleDrawingView {
       l.frame = bounds
       l.path = basePath
 
-      let spreadPath = createSquirclePath(insetBy: -spread * 2, radius: baseRadius + spread)
+      let spreadRadii =
+        CornerRadii(
+          topLeft: max(0, baseRadii.topLeft + spread),
+          topRight: max(0, baseRadii.topRight + spread),
+          bottomRight: max(0, baseRadii.bottomRight + spread),
+          bottomLeft: max(0, baseRadii.bottomLeft + spread)
+        )
+      let spreadPath = createSquirclePath(insetBy: -spread * 2, radii: spreadRadii)
       l.shadowPath = spreadPath
     }
   }

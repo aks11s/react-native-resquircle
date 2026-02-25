@@ -38,6 +38,57 @@ struct SquirclePath {
     return createPath(width: width, height: height, curveProperties: curveProperties)
   }
 
+  static func create(
+    width: CGFloat,
+    height: CGFloat,
+    topLeftRadius: CGFloat,
+    topRightRadius: CGFloat,
+    bottomRightRadius: CGFloat,
+    bottomLeftRadius: CGFloat,
+    cornerSmoothing: CGFloat
+  ) -> CGPath {
+    if width <= 0 || height <= 0 {
+      return CGPath(rect: .zero, transform: nil)
+    }
+
+    let checkedCornerSmoothing = max(min(cornerSmoothing, 1), 0)
+    let budget = min(width, height) / 2
+
+    func checkedRadius(_ r: CGFloat) -> CGFloat {
+      min(max(0, r), budget)
+    }
+
+    let cpTL = calculateCurveProperties(
+      cornerRadius: checkedRadius(topLeftRadius),
+      cornerSmoothing: checkedCornerSmoothing,
+      roundingAndSmoothingBudget: budget
+    )
+    let cpTR = calculateCurveProperties(
+      cornerRadius: checkedRadius(topRightRadius),
+      cornerSmoothing: checkedCornerSmoothing,
+      roundingAndSmoothingBudget: budget
+    )
+    let cpBR = calculateCurveProperties(
+      cornerRadius: checkedRadius(bottomRightRadius),
+      cornerSmoothing: checkedCornerSmoothing,
+      roundingAndSmoothingBudget: budget
+    )
+    let cpBL = calculateCurveProperties(
+      cornerRadius: checkedRadius(bottomLeftRadius),
+      cornerSmoothing: checkedCornerSmoothing,
+      roundingAndSmoothingBudget: budget
+    )
+
+    return createPath(
+      width: width,
+      height: height,
+      topLeft: cpTL,
+      topRight: cpTR,
+      bottomRight: cpBR,
+      bottomLeft: cpBL
+    )
+  }
+
   private static func createPath(
     width: CGFloat,
     height: CGFloat,
@@ -144,6 +195,156 @@ struct SquirclePath {
       c2: CGPoint(x: b + c, y: -d),
       end: CGPoint(x: a + b + c, y: -d)
     )
+
+    path.close()
+    return path.cgPath
+  }
+
+  private static func createPath(
+    width: CGFloat,
+    height: CGFloat,
+    topLeft cpTL: CurveProperties,
+    topRight cpTR: CurveProperties,
+    bottomRight cpBR: CurveProperties,
+    bottomLeft cpBL: CurveProperties
+  ) -> CGPath {
+    let path = UIBezierPath()
+
+    func isZero(_ cp: CurveProperties) -> Bool {
+      cp.cornerRadius <= 0 || cp.p <= 0
+    }
+
+    // Start at top-right.
+    var current = CGPoint(x: width - cpTR.p, y: 0)
+    path.move(to: current)
+
+    // Top-right corner
+    if !isZero(cpTR) {
+      current = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: cpTR.a, y: 0),
+        c2: CGPoint(x: cpTR.a + cpTR.b, y: 0),
+        end: CGPoint(x: cpTR.a + cpTR.b + cpTR.c, y: cpTR.d)
+      )
+      let center = CGPoint(x: width - cpTR.cornerRadius, y: cpTR.cornerRadius)
+      current = addArc(
+        path,
+        from: current,
+        by: CGPoint(x: cpTR.arcSectionLength, y: cpTR.arcSectionLength),
+        center: center,
+        radius: cpTR.cornerRadius
+      )
+      current = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: cpTR.d, y: cpTR.c),
+        c2: CGPoint(x: cpTR.d, y: cpTR.c + cpTR.d),
+        end: CGPoint(x: cpTR.d, y: cpTR.a + cpTR.b + cpTR.c)
+      )
+    } else {
+      current = CGPoint(x: width, y: 0)
+      path.addLine(to: current)
+    }
+
+    // Right edge
+    current = CGPoint(x: width, y: height - cpBR.p)
+    path.addLine(to: current)
+
+    // Bottom-right corner
+    if !isZero(cpBR) {
+      current = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: 0, y: cpBR.a),
+        c2: CGPoint(x: 0, y: cpBR.a + cpBR.b),
+        end: CGPoint(x: -cpBR.d, y: cpBR.a + cpBR.b + cpBR.c)
+      )
+      let center = CGPoint(x: width - cpBR.cornerRadius, y: height - cpBR.cornerRadius)
+      current = addArc(
+        path,
+        from: current,
+        by: CGPoint(x: -cpBR.arcSectionLength, y: cpBR.arcSectionLength),
+        center: center,
+        radius: cpBR.cornerRadius
+      )
+      current = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: -cpBR.c, y: cpBR.d),
+        c2: CGPoint(x: -(cpBR.b + cpBR.c), y: cpBR.d),
+        end: CGPoint(x: -(cpBR.a + cpBR.b + cpBR.c), y: cpBR.d)
+      )
+    } else {
+      current = CGPoint(x: width, y: height)
+      path.addLine(to: current)
+    }
+
+    // Bottom edge
+    current = CGPoint(x: cpBL.p, y: height)
+    path.addLine(to: current)
+
+    // Bottom-left corner
+    if !isZero(cpBL) {
+      current = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: -cpBL.a, y: 0),
+        c2: CGPoint(x: -(cpBL.a + cpBL.b), y: 0),
+        end: CGPoint(x: -(cpBL.a + cpBL.b + cpBL.c), y: -cpBL.d)
+      )
+      let center = CGPoint(x: cpBL.cornerRadius, y: height - cpBL.cornerRadius)
+      current = addArc(
+        path,
+        from: current,
+        by: CGPoint(x: -cpBL.arcSectionLength, y: -cpBL.arcSectionLength),
+        center: center,
+        radius: cpBL.cornerRadius
+      )
+      current = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: -cpBL.d, y: -cpBL.c),
+        c2: CGPoint(x: -cpBL.d, y: -(cpBL.b + cpBL.c)),
+        end: CGPoint(x: -cpBL.d, y: -(cpBL.a + cpBL.b + cpBL.c))
+      )
+    } else {
+      current = CGPoint(x: 0, y: height)
+      path.addLine(to: current)
+    }
+
+    // Left edge
+    current = CGPoint(x: 0, y: cpTL.p)
+    path.addLine(to: current)
+
+    // Top-left corner
+    if !isZero(cpTL) {
+      current = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: 0, y: -cpTL.a),
+        c2: CGPoint(x: 0, y: -(cpTL.a + cpTL.b)),
+        end: CGPoint(x: cpTL.d, y: -(cpTL.a + cpTL.b + cpTL.c))
+      )
+      let center = CGPoint(x: cpTL.cornerRadius, y: cpTL.cornerRadius)
+      current = addArc(
+        path,
+        from: current,
+        by: CGPoint(x: cpTL.arcSectionLength, y: -cpTL.arcSectionLength),
+        center: center,
+        radius: cpTL.cornerRadius
+      )
+      _ = addRelativeCurve(
+        path,
+        from: current,
+        c1: CGPoint(x: cpTL.c, y: -cpTL.d),
+        c2: CGPoint(x: cpTL.b + cpTL.c, y: -cpTL.d),
+        end: CGPoint(x: cpTL.a + cpTL.b + cpTL.c, y: -cpTL.d)
+      )
+    } else {
+      current = CGPoint(x: 0, y: 0)
+      path.addLine(to: current)
+    }
 
     path.close()
     return path.cgPath

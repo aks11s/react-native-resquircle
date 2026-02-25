@@ -21,47 +21,42 @@ data class CurveProperties(
 class SquirclePath(
   private var width: Float,
   private var height: Float,
-  private var borderRadius: Float,
+  private var topLeftRadius: Float,
+  private var topRightRadius: Float,
+  private var bottomRightRadius: Float,
+  private var bottomLeftRadius: Float,
   private var cornerSmoothing: Float,
 ) : Path() {
 
   init {
-    val checkedRadius = minOf(this.borderRadius, this.width / 2f, this.height / 2f)
     val checkedCornerSmoothing = maxOf(minOf(this.cornerSmoothing, 1f), 0f)
 
-    if (checkedRadius <= 0f || width <= 0f || height <= 0f) {
+    if (width <= 0f || height <= 0f) {
       addRect(0f, 0f, width, height, Direction.CW)
     } else {
-      val curvedProperties =
-        calculateCurveProperties(
-          checkedRadius,
-          checkedCornerSmoothing,
-          min(this.width, this.height) / 2,
-        )
+      val budget = min(this.width, this.height) / 2f
 
-      buildPath(this.width, this.height, curvedProperties)
+      fun checkedRadius(r: Float): Float = minOf(maxOf(r, 0f), budget)
+
+      val cpTL = calculateCurveProperties(checkedRadius(topLeftRadius), checkedCornerSmoothing, budget)
+      val cpTR = calculateCurveProperties(checkedRadius(topRightRadius), checkedCornerSmoothing, budget)
+      val cpBR =
+        calculateCurveProperties(checkedRadius(bottomRightRadius), checkedCornerSmoothing, budget)
+      val cpBL = calculateCurveProperties(checkedRadius(bottomLeftRadius), checkedCornerSmoothing, budget)
+
+      buildPath(this.width, this.height, cpTL, cpTR, cpBR, cpBL)
     }
   }
 
-  private fun buildPath(width: Float, height: Float, cp: CurveProperties) {
-    val a = cp.a
-    val b = cp.b
-    val c = cp.c
-    val d = cp.d
-    val p = cp.p
-    val arc = cp.arcSectionLength
-    val r = cp.cornerRadius
-
-    val topRightCx = width - r
-    val topRightCy = r
-    val bottomRightCx = width - r
-    val bottomRightCy = height - r
-    val bottomLeftCx = r
-    val bottomLeftCy = height - r
-    val topLeftCx = r
-    val topLeftCy = r
-
-    var x = width - p
+  private fun buildPath(
+    width: Float,
+    height: Float,
+    cpTL: CurveProperties,
+    cpTR: CurveProperties,
+    cpBR: CurveProperties,
+    cpBL: CurveProperties,
+  ) {
+    var x = width - cpTR.p
     var y = 0f
     moveTo(x, y)
 
@@ -90,33 +85,88 @@ class SquirclePath(
       y = endY
     }
 
-    relCubic(a, 0f, a + b, 0f, a + b + c, d)
-    arcToRelative(arc, arc, topRightCx, topRightCy, r)
-    relCubic(d, c, d, c + d, d, a + b + c)
+    // Top-right corner
+    if (cpTR.cornerRadius > 0f && cpTR.p > 0f) {
+      relCubic(cpTR.a, 0f, cpTR.a + cpTR.b, 0f, cpTR.a + cpTR.b + cpTR.c, cpTR.d)
+      arcToRelative(
+        cpTR.arcSectionLength,
+        cpTR.arcSectionLength,
+        width - cpTR.cornerRadius,
+        cpTR.cornerRadius,
+        cpTR.cornerRadius
+      )
+      relCubic(cpTR.d, cpTR.c, cpTR.d, cpTR.c + cpTR.d, cpTR.d, cpTR.a + cpTR.b + cpTR.c)
+    } else {
+      x = width
+      y = 0f
+      lineTo(x, y)
+    }
 
+    // Right edge
     x = width
-    y = height - p
+    y = height - cpBR.p
     lineTo(x, y)
 
-    relCubic(0f, a, 0f, a + b, -d, a + b + c)
-    arcToRelative(-arc, arc, bottomRightCx, bottomRightCy, r)
-    relCubic(-c, d, -(b + c), d, -(a + b + c), d)
+    // Bottom-right corner
+    if (cpBR.cornerRadius > 0f && cpBR.p > 0f) {
+      relCubic(0f, cpBR.a, 0f, cpBR.a + cpBR.b, -cpBR.d, cpBR.a + cpBR.b + cpBR.c)
+      arcToRelative(
+        -cpBR.arcSectionLength,
+        cpBR.arcSectionLength,
+        width - cpBR.cornerRadius,
+        height - cpBR.cornerRadius,
+        cpBR.cornerRadius
+      )
+      relCubic(-cpBR.c, cpBR.d, -(cpBR.b + cpBR.c), cpBR.d, -(cpBR.a + cpBR.b + cpBR.c), cpBR.d)
+    } else {
+      x = width
+      y = height
+      lineTo(x, y)
+    }
 
-    x = p
+    // Bottom edge
+    x = cpBL.p
     y = height
     lineTo(x, y)
 
-    relCubic(-a, 0f, -(a + b), 0f, -(a + b + c), -d)
-    arcToRelative(-arc, -arc, bottomLeftCx, bottomLeftCy, r)
-    relCubic(-d, -c, -d, -(b + c), -d, -(a + b + c))
+    // Bottom-left corner
+    if (cpBL.cornerRadius > 0f && cpBL.p > 0f) {
+      relCubic(-cpBL.a, 0f, -(cpBL.a + cpBL.b), 0f, -(cpBL.a + cpBL.b + cpBL.c), -cpBL.d)
+      arcToRelative(
+        -cpBL.arcSectionLength,
+        -cpBL.arcSectionLength,
+        cpBL.cornerRadius,
+        height - cpBL.cornerRadius,
+        cpBL.cornerRadius
+      )
+      relCubic(-cpBL.d, -cpBL.c, -cpBL.d, -(cpBL.b + cpBL.c), -cpBL.d, -(cpBL.a + cpBL.b + cpBL.c))
+    } else {
+      x = 0f
+      y = height
+      lineTo(x, y)
+    }
 
+    // Left edge
     x = 0f
-    y = p
+    y = cpTL.p
     lineTo(x, y)
 
-    relCubic(0f, -a, 0f, -(a + b), d, -(a + b + c))
-    arcToRelative(arc, -arc, topLeftCx, topLeftCy, r)
-    relCubic(c, -d, b + c, -d, a + b + c, -d)
+    // Top-left corner
+    if (cpTL.cornerRadius > 0f && cpTL.p > 0f) {
+      relCubic(0f, -cpTL.a, 0f, -(cpTL.a + cpTL.b), cpTL.d, -(cpTL.a + cpTL.b + cpTL.c))
+      arcToRelative(
+        cpTL.arcSectionLength,
+        -cpTL.arcSectionLength,
+        cpTL.cornerRadius,
+        cpTL.cornerRadius,
+        cpTL.cornerRadius
+      )
+      relCubic(cpTL.c, -cpTL.d, cpTL.b + cpTL.c, -cpTL.d, cpTL.a + cpTL.b + cpTL.c, -cpTL.d)
+    } else {
+      x = 0f
+      y = 0f
+      lineTo(x, y)
+    }
 
     close()
   }
@@ -126,26 +176,24 @@ class SquirclePath(
     cornerSmoothing: Float,
     roundingAndSmoothingBudget: Float,
   ): CurveProperties {
-    var p = (1 + cornerSmoothing) * cornerRadius
+    if (cornerRadius <= 0f) {
+      return CurveProperties(0f, 0f, 0f, 0f, 0f, 0f, 0f)
+    }
 
-    val arcMeasure = 90 * (1 - cornerSmoothing)
+    val maxCornerSmoothing = (roundingAndSmoothingBudget / cornerRadius) - 1f
+    val effectiveSmoothing = minOf(cornerSmoothing, maxCornerSmoothing).coerceAtLeast(0f)
+
+    val p = minOf((1 + effectiveSmoothing) * cornerRadius, roundingAndSmoothingBudget)
+
+    val arcMeasure = 90 * (1 - effectiveSmoothing)
     val arcSectionLength = sin(toRadians(arcMeasure / 2)) * cornerRadius * sqrt(2f)
     val angleAlpha = (90 - arcMeasure) / 2
     val p3ToP4Distance = cornerRadius * tan(toRadians(angleAlpha / 2))
-    val angleBeta = 45 * cornerSmoothing
+    val angleBeta = 45 * effectiveSmoothing
     val c = p3ToP4Distance * cos(toRadians(angleBeta))
     val d = c * tan(toRadians(angleBeta))
-    var b = (p - arcSectionLength - c - d) / 3
-    var a = 2 * b
-
-    if (p > roundingAndSmoothingBudget) {
-      val p1ToP3MaxDistance = roundingAndSmoothingBudget - d - arcSectionLength - c
-      val minA = p1ToP3MaxDistance / 6
-      val maxB = p1ToP3MaxDistance - minA
-      b = minOf(b, maxB)
-      a = p1ToP3MaxDistance - b
-      p = minOf(p, roundingAndSmoothingBudget)
-    }
+    val b = (p - arcSectionLength - c - d) / 3
+    val a = 2 * b
 
     return CurveProperties(a, b, c, d, p, arcSectionLength, cornerRadius)
   }

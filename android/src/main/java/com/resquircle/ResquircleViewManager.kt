@@ -55,12 +55,44 @@ class ResquircleViewManager : ReactViewManager(),
     view?.setSquircleBorderRadius(radius)
   }
 
+  override fun setSquircleTopLeftRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleTopLeftRadius(value)
+  }
+
+  override fun setSquircleTopRightRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleTopRightRadius(value)
+  }
+
+  override fun setSquircleBottomRightRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleBottomRightRadius(value)
+  }
+
+  override fun setSquircleBottomLeftRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleBottomLeftRadius(value)
+  }
+
   override fun setCornerSmoothing(view: ResquircleView?, smoothing: Float) {
     view?.setCornerSmoothing(smoothing)
   }
 
   override fun setClipContent(view: ResquircleView?, value: Boolean) {
     view?.setClipContent(value)
+  }
+
+  override fun setSquircleOutlineColor(view: ResquircleView?, color: Int?) {
+    view?.setSquircleOutlineColor(color)
+  }
+
+  override fun setSquircleOutlineWidth(view: ResquircleView?, value: Float) {
+    view?.setSquircleOutlineWidth(value)
+  }
+
+  override fun setSquircleOutlineOffset(view: ResquircleView?, value: Float) {
+    view?.setSquircleOutlineOffset(value)
+  }
+
+  override fun setSquircleOutlineStyle(view: ResquircleView?, value: String?) {
+    view?.setSquircleOutlineStyle(value)
   }
 
   override fun getDelegate(): ViewManagerDelegate<ReactViewGroup> {
@@ -93,6 +125,18 @@ private class ViewManagerWrapper(private val baseVm: ResquircleViewManager) :
     baseVm.setSquircleBorderWidth(view, value)
 
   override fun setBorderRadius(view: ResquircleView?, value: Float) = baseVm.setBorderRadius(view, value)
+  override fun setSquircleTopLeftRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleTopLeftRadius(view, value)
+
+  override fun setSquircleTopRightRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleTopRightRadius(view, value)
+
+  override fun setSquircleBottomRightRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleBottomRightRadius(view, value)
+
+  override fun setSquircleBottomLeftRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleBottomLeftRadius(view, value)
+
   override fun setCornerSmoothing(view: ResquircleView?, value: Float) =
     baseVm.setCornerSmoothing(view, value)
 
@@ -100,6 +144,18 @@ private class ViewManagerWrapper(private val baseVm: ResquircleViewManager) :
     baseVm.setSquircleBoxShadow(view, value)
 
   override fun setClipContent(view: ResquircleView?, value: Boolean) = baseVm.setClipContent(view, value)
+
+  override fun setSquircleOutlineColor(view: ResquircleView?, value: Int?) =
+    baseVm.setSquircleOutlineColor(view, value)
+
+  override fun setSquircleOutlineWidth(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleOutlineWidth(view, value)
+
+  override fun setSquircleOutlineOffset(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleOutlineOffset(view, value)
+
+  override fun setSquircleOutlineStyle(view: ResquircleView?, value: String?) =
+    baseVm.setSquircleOutlineStyle(view, value)
 }
 
 private class SplitDelegate(

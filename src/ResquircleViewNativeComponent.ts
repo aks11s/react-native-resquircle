@@ -26,6 +26,13 @@ export interface NativeResquircleViewProps extends ViewProps {
    */
   borderRadius?: Float;
   /**
+   * Per-corner radii (dp). If provided, they take precedence over `borderRadius`.
+   */
+  squircleTopLeftRadius?: Float;
+  squircleTopRightRadius?: Float;
+  squircleBottomRightRadius?: Float;
+  squircleBottomLeftRadius?: Float;
+  /**
    * Corner smoothing amount. Range 0..1
    */
   cornerSmoothing?: Float;
@@ -37,6 +44,13 @@ export interface NativeResquircleViewProps extends ViewProps {
    * Clip children to the squircle shape (iOS).
    */
   clipContent?: boolean;
+  /**
+   * Outline props (dp). Mirrors RN View `outline*` but rendered as squircle.
+   */
+  squircleOutlineColor?: ColorValue;
+  squircleOutlineWidth?: Float;
+  squircleOutlineOffset?: Float;
+  squircleOutlineStyle?: string;
   /**
    * Back-compat: old example prop. Treated as squircleBackgroundColor.
    */

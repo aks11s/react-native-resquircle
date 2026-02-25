@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
@@ -20,7 +21,10 @@ private data class ShadowKey(
   val widthPx: Int,
   val heightPx: Int,
   val cornerSmoothingBits: Int,
-  val borderRadiusBits: Int,
+  val topLeftRadiusBits: Int,
+  val topRightRadiusBits: Int,
+  val bottomRightRadiusBits: Int,
+  val bottomLeftRadiusBits: Int,
   val borderWidthPxBits: Int,
   val specs: List<ShadowSpecKey>,
 )
@@ -33,11 +37,20 @@ private data class ShadowSpecKey(
   val colorInt: Int,
 )
 
+private data class CornerRadiiPx(
+  val topLeft: Float,
+  val topRight: Float,
+  val bottomRight: Float,
+  val bottomLeft: Float,
+)
+
 class ResquircleView(context: Context) : ReactViewGroup(context) {
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
   private val borderPaint = Paint(paint)
+  private val outlinePaint = Paint(paint)
   private val path = Path() // fill/border path
   private val clipPath = Path() // inner clip for children
+  private val outlinePath = Path()
   private var shadowSpecs: List<ShadowSpec> = emptyList()
   private val shadowRenders: MutableList<ShadowRender> = mutableListOf()
   private val gpuShadowRenders: MutableList<GpuShadowRender> = mutableListOf()
@@ -57,8 +70,17 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   private var borderWidth = 0f // dp
   private var backgroundColorInt = 0x00000000
   private var borderRadius = 0f // px
+  private var topLeftRadius = 0f // px
+  private var topRightRadius = 0f // px
+  private var bottomRightRadius = 0f // px
+  private var bottomLeftRadius = 0f // px
+  private var hasPerCornerRadii = false
   private var boxShadowString: String? = null
   private var clipContent: Boolean = false
+  private var outlineColor = 0x00000000
+  private var outlineWidth = 0f // dp
+  private var outlineOffset = 0f // dp
+  private var outlineStyle: String = "solid"
 
   init {
     paint.color = backgroundColorInt
@@ -68,6 +90,11 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     borderPaint.isDither = true
     borderPaint.strokeJoin = Paint.Join.ROUND
     borderPaint.strokeCap = Paint.Cap.ROUND
+
+    outlinePaint.isDither = true
+    outlinePaint.style = Paint.Style.STROKE
+    outlinePaint.strokeJoin = Paint.Join.ROUND
+    outlinePaint.strokeCap = Paint.Cap.ROUND
     setWillNotDraw(false)
   }
 
@@ -132,6 +159,19 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
       borderPaint.strokeWidth = Utils.convertDpToPixel(borderWidth, context)
       canvas.drawPath(path, borderPaint)
     }
+
+    val outlineWidthPx = Utils.convertDpToPixel(outlineWidth, context)
+    if (outlineWidthPx > 0f && Color.alpha(outlineColor) > 0) {
+      outlinePaint.color = outlineColor
+      outlinePaint.strokeWidth = outlineWidthPx
+      outlinePaint.pathEffect =
+        when (outlineStyle) {
+          "dashed" -> DashPathEffect(floatArrayOf(3f * outlineWidthPx, 2f * outlineWidthPx), 0f)
+          "dotted" -> DashPathEffect(floatArrayOf(outlineWidthPx, 2f * outlineWidthPx), 0f)
+          else -> null
+        }
+      canvas.drawPath(outlinePath, outlinePaint)
+    }
   }
 
   override fun onSizeChanged(newWidth: Int, newHeight: Int, oldWidth: Int, oldHeight: Int) {
@@ -144,15 +184,25 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     if (width == 0f || height == 0f) return
 
     val pixelBorderWidth = Utils.convertDpToPixel(this.borderWidth, context)
-    val baseRadius = borderRadius + (pixelBorderWidth / 2f)
+    val r = effectiveCornerRadiiPx()
+    val baseRadii =
+      CornerRadiiPx(
+        topLeft = r.topLeft + (pixelBorderWidth / 2f),
+        topRight = r.topRight + (pixelBorderWidth / 2f),
+        bottomRight = r.bottomRight + (pixelBorderWidth / 2f),
+        bottomLeft = r.bottomLeft + (pixelBorderWidth / 2f),
+      )
 
-    updateShadowsIfNeeded(width, height, pixelBorderWidth, baseRadius)
+    updateShadowsIfNeeded(width, height, pixelBorderWidth, baseRadii)
 
     val squirclePath =
       SquirclePath(
         width - pixelBorderWidth,
         height - pixelBorderWidth,
-        borderRadius,
+        r.topLeft,
+        r.topRight,
+        r.bottomRight,
+        r.bottomLeft,
         cornerSmoothing,
       )
 
@@ -168,16 +218,62 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
 
     // Clip children to the inner edge of the border stroke.
     val innerInset = pixelBorderWidth
-    val innerRadius = (borderRadius - pixelBorderWidth).coerceAtLeast(0f)
     val innerW = (width - 2f * innerInset).coerceAtLeast(0f)
     val innerH = (height - 2f * innerInset).coerceAtLeast(0f)
-    val innerSquircle = SquirclePath(innerW, innerH, innerRadius, cornerSmoothing)
+    val innerRadii =
+      CornerRadiiPx(
+        topLeft = (r.topLeft - pixelBorderWidth).coerceAtLeast(0f),
+        topRight = (r.topRight - pixelBorderWidth).coerceAtLeast(0f),
+        bottomRight = (r.bottomRight - pixelBorderWidth).coerceAtLeast(0f),
+        bottomLeft = (r.bottomLeft - pixelBorderWidth).coerceAtLeast(0f),
+      )
+    val innerSquircle =
+      SquirclePath(
+        innerW,
+        innerH,
+        innerRadii.topLeft,
+        innerRadii.topRight,
+        innerRadii.bottomRight,
+        innerRadii.bottomLeft,
+        cornerSmoothing
+      )
     tempMatrix.reset()
     tempMatrix.setTranslate(innerInset, innerInset)
     tempClipPath.reset()
     innerSquircle.transform(tempMatrix, tempClipPath)
     clipPath.reset()
     clipPath.addPath(tempClipPath)
+
+    // Outline (outside border).
+    outlinePath.reset()
+    val outlineWidthPx = Utils.convertDpToPixel(outlineWidth, context)
+    val outlineOffsetPx = Utils.convertDpToPixel(outlineOffset, context)
+    if (outlineWidthPx > 0f && Color.alpha(outlineColor) > 0) {
+      val outset = (pixelBorderWidth / 2f) + outlineOffsetPx + (outlineWidthPx / 2f)
+      val outlineSquircle =
+        SquirclePath(
+          width + 2f * outset,
+          height + 2f * outset,
+          r.topLeft + outset,
+          r.topRight + outset,
+          r.bottomRight + outset,
+          r.bottomLeft + outset,
+          cornerSmoothing
+        )
+      tempMatrix.reset()
+      tempMatrix.setTranslate(-outset, -outset)
+      tempPath.reset()
+      outlineSquircle.transform(tempMatrix, tempPath)
+      outlinePath.addPath(tempPath)
+    }
+  }
+
+  private fun effectiveCornerRadiiPx(): CornerRadiiPx {
+    if (!hasPerCornerRadii) {
+      val r = borderRadius
+      return CornerRadiiPx(r, r, r, r)
+    }
+    return CornerRadiiPx(topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius)
   }
 
   private fun clearShadowRenders() {
@@ -196,7 +292,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     width: Float,
     height: Float,
     pixelBorderWidth: Float,
-    baseRadius: Float,
+    baseRadii: CornerRadiiPx,
   ) {
     if (width <= 0f || height <= 0f) return
     if (shadowSpecs.isEmpty()) {
@@ -221,7 +317,10 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
         widthPx = width.roundToInt(),
         heightPx = height.roundToInt(),
         cornerSmoothingBits = cornerSmoothing.toRawBits(),
-        borderRadiusBits = borderRadius.toRawBits(),
+        topLeftRadiusBits = baseRadii.topLeft.toRawBits(),
+        topRightRadiusBits = baseRadii.topRight.toRawBits(),
+        bottomRightRadiusBits = baseRadii.bottomRight.toRawBits(),
+        bottomLeftRadiusBits = baseRadii.bottomLeft.toRawBits(),
         borderWidthPxBits = pixelBorderWidth.toRawBits(),
         specs = keySpecs,
       )
@@ -229,7 +328,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     if (key == lastShadowKey) return
     lastShadowKey = key
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      rebuildGpuShadowNodes(width, height, baseRadius, shadowSpecs.take(maxShadowLayers))
+      rebuildGpuShadowNodes(width, height, baseRadii, shadowSpecs.take(maxShadowLayers))
       clearShadowRenders()
     } else {
       // GPU-only mode: no shadows on < API 31.
@@ -238,7 +337,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     }
   }
 
-  private fun rebuildShadowBitmaps(width: Float, height: Float, baseRadius: Float) {
+  private fun rebuildShadowBitmaps(width: Float, height: Float, baseRadii: CornerRadiiPx) {
     if (shadowSpecs.isEmpty()) return
 
     val old = shadowRenders.toList()
@@ -256,7 +355,13 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
 
         val innerW = (width + 2f * spread).coerceAtLeast(0f)
         val innerH = (height + 2f * spread).coerceAtLeast(0f)
-        val radius = (baseRadius + spread).coerceAtLeast(0f)
+        val radii =
+          CornerRadiiPx(
+            topLeft = (baseRadii.topLeft + spread).coerceAtLeast(0f),
+            topRight = (baseRadii.topRight + spread).coerceAtLeast(0f),
+            bottomRight = (baseRadii.bottomRight + spread).coerceAtLeast(0f),
+            bottomLeft = (baseRadii.bottomLeft + spread).coerceAtLeast(0f),
+          )
 
         val bmpW = (width + 2f * pad).roundToInt().coerceAtLeast(1)
         val bmpH = (height + 2f * pad).roundToInt().coerceAtLeast(1)
@@ -293,7 +398,16 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
         shadowMaskPaint.maskFilter =
           if (blur > 0f) BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL) else null
 
-        val squircle = SquirclePath(innerW, innerH, radius, cornerSmoothing)
+        val squircle =
+          SquirclePath(
+            innerW,
+            innerH,
+            radii.topLeft,
+            radii.topRight,
+            radii.bottomRight,
+            radii.bottomLeft,
+            cornerSmoothing
+          )
         val m = Matrix().apply { setTranslate((pad - spread), (pad - spread)) }
         val shadowPath = Path().apply { squircle.transform(m, this) }
         bitmapCanvas.drawPath(shadowPath, shadowMaskPaint)
@@ -318,7 +432,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   private fun rebuildGpuShadowNodes(
     width: Float,
     height: Float,
-    baseRadius: Float,
+    baseRadii: CornerRadiiPx,
     effectiveSpecs: List<ShadowSpec>,
   ) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
@@ -336,7 +450,13 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
 
       val innerW = (width + 2f * spread).coerceAtLeast(0f)
       val innerH = (height + 2f * spread).coerceAtLeast(0f)
-      val radius = (baseRadius + spread).coerceAtLeast(0f)
+      val radii =
+        CornerRadiiPx(
+          topLeft = (baseRadii.topLeft + spread).coerceAtLeast(0f),
+          topRight = (baseRadii.topRight + spread).coerceAtLeast(0f),
+          bottomRight = (baseRadii.bottomRight + spread).coerceAtLeast(0f),
+          bottomLeft = (baseRadii.bottomLeft + spread).coerceAtLeast(0f),
+        )
 
       val scaleUp = 1f
       val nodeW = (width + 2f * pad).roundToInt().coerceAtLeast(1)
@@ -352,7 +472,16 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
       gpuShadowPaint.style = Paint.Style.FILL
       gpuShadowPaint.color = spec.colorInt
 
-      val squircle = SquirclePath(innerW, innerH, radius, cornerSmoothing)
+      val squircle =
+        SquirclePath(
+          innerW,
+          innerH,
+          radii.topLeft,
+          radii.topRight,
+          radii.bottomRight,
+          radii.bottomLeft,
+          cornerSmoothing
+        )
       tempMatrix.reset()
       tempMatrix.setTranslate((pad - spread), (pad - spread))
       tempPath.reset()
@@ -412,6 +541,42 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     invalidate()
   }
 
+  fun setSquircleTopLeftRadius(value: Float) {
+    val px = Utils.convertDpToPixel(value, context)
+    if (px == topLeftRadius && hasPerCornerRadii) return
+    topLeftRadius = px
+    hasPerCornerRadii = true
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleTopRightRadius(value: Float) {
+    val px = Utils.convertDpToPixel(value, context)
+    if (px == topRightRadius && hasPerCornerRadii) return
+    topRightRadius = px
+    hasPerCornerRadii = true
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleBottomRightRadius(value: Float) {
+    val px = Utils.convertDpToPixel(value, context)
+    if (px == bottomRightRadius && hasPerCornerRadii) return
+    bottomRightRadius = px
+    hasPerCornerRadii = true
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleBottomLeftRadius(value: Float) {
+    val px = Utils.convertDpToPixel(value, context)
+    if (px == bottomLeftRadius && hasPerCornerRadii) return
+    bottomLeftRadius = px
+    hasPerCornerRadii = true
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
   fun setViewBackgroundColor(color: Int) {
     backgroundColorInt = color
     paint.color = backgroundColorInt
@@ -444,6 +609,35 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     invalidate()
   }
 
+  fun setSquircleOutlineColor(color: Int?) {
+    val c = color ?: 0x00000000
+    if (c == outlineColor) return
+    outlineColor = c
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleOutlineWidth(value: Float) {
+    if (value == outlineWidth) return
+    outlineWidth = value
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleOutlineOffset(value: Float) {
+    if (value == outlineOffset) return
+    outlineOffset = value
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleOutlineStyle(value: String?) {
+    val v = value ?: "solid"
+    if (v == outlineStyle) return
+    outlineStyle = v
+    invalidate()
+  }
+
   private fun rebuildShadowSpecs() {
     val s = boxShadowString?.trim()
     if (s.isNullOrEmpty()) {
@@ -457,8 +651,15 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     val h = height.toFloat()
     if (w > 0f && h > 0f) {
       val pixelBorderWidth = Utils.convertDpToPixel(this.borderWidth, context)
-      val baseRadius = borderRadius + (pixelBorderWidth / 2f)
-      updateShadowsIfNeeded(w, h, pixelBorderWidth, baseRadius)
+      val r = effectiveCornerRadiiPx()
+      val baseRadii =
+        CornerRadiiPx(
+          topLeft = r.topLeft + (pixelBorderWidth / 2f),
+          topRight = r.topRight + (pixelBorderWidth / 2f),
+          bottomRight = r.bottomRight + (pixelBorderWidth / 2f),
+          bottomLeft = r.bottomLeft + (pixelBorderWidth / 2f),
+        )
+      updateShadowsIfNeeded(w, h, pixelBorderWidth, baseRadii)
     }
   }
 
