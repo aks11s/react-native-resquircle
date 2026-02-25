@@ -26,6 +26,13 @@ export interface NativeResquircleViewProps extends ViewProps {
    */
   borderRadius?: Float;
   /**
+   * Per-corner radii (dp). If provided, they take precedence over `borderRadius`.
+   */
+  squircleTopLeftRadius?: Float;
+  squircleTopRightRadius?: Float;
+  squircleBottomRightRadius?: Float;
+  squircleBottomLeftRadius?: Float;
+  /**
    * Corner smoothing amount. Range 0..1
    */
   cornerSmoothing?: Float;

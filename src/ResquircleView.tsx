@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {
+  I18nManager,
   Pressable,
   StyleSheet,
   View,
@@ -74,6 +75,16 @@ const useResquircleProps = (
     overflow ?? (flattenedStyle as any)?.overflow ?? 'visible';
 
   const {
+    // border radii
+    borderRadius,
+    borderTopLeftRadius,
+    borderTopRightRadius,
+    borderBottomLeftRadius,
+    borderBottomRightRadius,
+    borderTopStartRadius,
+    borderTopEndRadius,
+    borderBottomStartRadius,
+    borderBottomEndRadius,
     // shadow styles
     boxShadow,
     shadowColor,
@@ -94,6 +105,54 @@ const useResquircleProps = (
     // other styles that should be passed to container
     ...containerStyle
   } = flattenedStyle || ({} as any);
+
+  const resolvedCornerRadii = React.useMemo(() => {
+    const base = typeof borderRadius === 'number' ? borderRadius : 0;
+    const rtl = I18nManager.isRTL;
+
+    const pick = (
+      physical: unknown,
+      logical: unknown,
+      fallback: number
+    ): number => {
+      if (typeof physical === 'number') return physical;
+      if (typeof logical === 'number') return logical;
+      return fallback;
+    };
+
+    const tl = pick(
+      borderTopLeftRadius,
+      rtl ? borderTopEndRadius : borderTopStartRadius,
+      base
+    );
+    const tr = pick(
+      borderTopRightRadius,
+      rtl ? borderTopStartRadius : borderTopEndRadius,
+      base
+    );
+    const bl = pick(
+      borderBottomLeftRadius,
+      rtl ? borderBottomEndRadius : borderBottomStartRadius,
+      base
+    );
+    const br = pick(
+      borderBottomRightRadius,
+      rtl ? borderBottomStartRadius : borderBottomEndRadius,
+      base
+    );
+
+    return { base, tl, tr, br, bl };
+  }, [
+    borderRadius,
+    borderTopLeftRadius,
+    borderTopRightRadius,
+    borderBottomLeftRadius,
+    borderBottomRightRadius,
+    borderTopStartRadius,
+    borderTopEndRadius,
+    borderBottomStartRadius,
+    borderBottomEndRadius,
+  ]);
 
   const derivedSquircleBoxShadow = React.useMemo(() => {
     if (typeof boxShadow === 'string' && boxShadow.trim().length > 0) {
@@ -186,7 +245,11 @@ const useResquircleProps = (
 
   const nativeProps = React.useMemo(
     () => ({
-      borderRadius: flattenedStyle?.borderRadius ?? 0,
+      borderRadius: resolvedCornerRadii.base,
+      squircleTopLeftRadius: resolvedCornerRadii.tl,
+      squircleTopRightRadius: resolvedCornerRadii.tr,
+      squircleBottomRightRadius: resolvedCornerRadii.br,
+      squircleBottomLeftRadius: resolvedCornerRadii.bl,
       squircleBorderWidth: flattenedStyle?.borderWidth ?? 0,
       squircleBackgroundColor:
         flattenedStyle?.backgroundColor ?? 'transparent',
@@ -202,7 +265,7 @@ const useResquircleProps = (
       cornerSmoothing,
       resolvedOverflow,
       derivedSquircleBoxShadow,
-      flattenedStyle?.borderRadius,
+      resolvedCornerRadii,
       flattenedStyle?.backgroundColor,
       flattenedStyle?.borderColor,
       flattenedStyle?.borderWidth,

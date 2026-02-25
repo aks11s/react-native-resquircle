@@ -55,6 +55,22 @@ class ResquircleViewManager : ReactViewManager(),
     view?.setSquircleBorderRadius(radius)
   }
 
+  override fun setSquircleTopLeftRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleTopLeftRadius(value)
+  }
+
+  override fun setSquircleTopRightRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleTopRightRadius(value)
+  }
+
+  override fun setSquircleBottomRightRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleBottomRightRadius(value)
+  }
+
+  override fun setSquircleBottomLeftRadius(view: ResquircleView?, value: Float) {
+    view?.setSquircleBottomLeftRadius(value)
+  }
+
   override fun setCornerSmoothing(view: ResquircleView?, smoothing: Float) {
     view?.setCornerSmoothing(smoothing)
   }
@@ -93,6 +109,18 @@ private class ViewManagerWrapper(private val baseVm: ResquircleViewManager) :
     baseVm.setSquircleBorderWidth(view, value)
 
   override fun setBorderRadius(view: ResquircleView?, value: Float) = baseVm.setBorderRadius(view, value)
+  override fun setSquircleTopLeftRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleTopLeftRadius(view, value)
+
+  override fun setSquircleTopRightRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleTopRightRadius(view, value)
+
+  override fun setSquircleBottomRightRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleBottomRightRadius(view, value)
+
+  override fun setSquircleBottomLeftRadius(view: ResquircleView?, value: Float) =
+    baseVm.setSquircleBottomLeftRadius(view, value)
+
   override fun setCornerSmoothing(view: ResquircleView?, value: Float) =
     baseVm.setCornerSmoothing(view, value)
 

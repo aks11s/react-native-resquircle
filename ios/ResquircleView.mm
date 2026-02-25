@@ -93,6 +93,30 @@ using namespace facebook::react;
         _shadowView.borderRadius = r;
     }
 
+    if (oldViewProps.squircleTopLeftRadius != newViewProps.squircleTopLeftRadius) {
+        CGFloat r = newViewProps.squircleTopLeftRadius;
+        _contentView.squircleTopLeftRadius = r;
+        _shadowView.squircleTopLeftRadius = r;
+    }
+
+    if (oldViewProps.squircleTopRightRadius != newViewProps.squircleTopRightRadius) {
+        CGFloat r = newViewProps.squircleTopRightRadius;
+        _contentView.squircleTopRightRadius = r;
+        _shadowView.squircleTopRightRadius = r;
+    }
+
+    if (oldViewProps.squircleBottomRightRadius != newViewProps.squircleBottomRightRadius) {
+        CGFloat r = newViewProps.squircleBottomRightRadius;
+        _contentView.squircleBottomRightRadius = r;
+        _shadowView.squircleBottomRightRadius = r;
+    }
+
+    if (oldViewProps.squircleBottomLeftRadius != newViewProps.squircleBottomLeftRadius) {
+        CGFloat r = newViewProps.squircleBottomLeftRadius;
+        _contentView.squircleBottomLeftRadius = r;
+        _shadowView.squircleBottomLeftRadius = r;
+    }
+
     if (oldViewProps.cornerSmoothing != newViewProps.cornerSmoothing) {
         CGFloat s = newViewProps.cornerSmoothing;
         _contentView.cornerSmoothing = s;
