@@ -153,6 +153,9 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
         width - pixelBorderWidth,
         height - pixelBorderWidth,
         borderRadius,
+        borderRadius,
+        borderRadius,
+        borderRadius,
         cornerSmoothing,
       )
 
@@ -171,7 +174,16 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     val innerRadius = (borderRadius - pixelBorderWidth).coerceAtLeast(0f)
     val innerW = (width - 2f * innerInset).coerceAtLeast(0f)
     val innerH = (height - 2f * innerInset).coerceAtLeast(0f)
-    val innerSquircle = SquirclePath(innerW, innerH, innerRadius, cornerSmoothing)
+    val innerSquircle =
+      SquirclePath(
+        innerW,
+        innerH,
+        innerRadius,
+        innerRadius,
+        innerRadius,
+        innerRadius,
+        cornerSmoothing
+      )
     tempMatrix.reset()
     tempMatrix.setTranslate(innerInset, innerInset)
     tempClipPath.reset()
@@ -293,7 +305,16 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
         shadowMaskPaint.maskFilter =
           if (blur > 0f) BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL) else null
 
-        val squircle = SquirclePath(innerW, innerH, radius, cornerSmoothing)
+        val squircle =
+          SquirclePath(
+            innerW,
+            innerH,
+            radius,
+            radius,
+            radius,
+            radius,
+            cornerSmoothing
+          )
         val m = Matrix().apply { setTranslate((pad - spread), (pad - spread)) }
         val shadowPath = Path().apply { squircle.transform(m, this) }
         bitmapCanvas.drawPath(shadowPath, shadowMaskPaint)
@@ -352,7 +373,16 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
       gpuShadowPaint.style = Paint.Style.FILL
       gpuShadowPaint.color = spec.colorInt
 
-      val squircle = SquirclePath(innerW, innerH, radius, cornerSmoothing)
+      val squircle =
+        SquirclePath(
+          innerW,
+          innerH,
+          radius,
+          radius,
+          radius,
+          radius,
+          cornerSmoothing
+        )
       tempMatrix.reset()
       tempMatrix.setTranslate((pad - spread), (pad - spread))
       tempPath.reset()
