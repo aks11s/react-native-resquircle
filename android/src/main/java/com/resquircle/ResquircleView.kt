@@ -16,6 +16,7 @@ import android.os.Build
 import com.facebook.react.views.view.ReactViewGroup
 import kotlin.math.ceil
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 private data class ShadowKey(
   val widthPx: Int,
@@ -59,7 +60,9 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   private val shadowDrawPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
     isFilterBitmap = true
   }
-  private val maxShadowLayers = Int.MAX_VALUE
+  private val maxShadowLayers = 8
+  private val maxShadowBitmapPixels = 1024 * 1024 // ALPHA_8 => ~1MB per layer
+  private val minShadowBitmapScale = 0.25f
   private val tempMatrix = Matrix()
   private val tempPath = Path()
   private val tempClipPath = Path()
@@ -103,6 +106,7 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     val drawX: Float,
     val drawY: Float,
     val colorInt: Int,
+    val scaleUp: Float,
   )
 
   private data class GpuShadowRender(
@@ -143,10 +147,17 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
         }
       }
     } else {
-      // GPU-only mode: no shadow rendering on < API 31.
       for (render in shadowRenders) {
         shadowDrawPaint.color = render.colorInt
-        canvas.drawBitmap(render.bitmap, render.drawX, render.drawY, shadowDrawPaint)
+        if (render.scaleUp != 1f) {
+          canvas.save()
+          canvas.translate(render.drawX / render.scaleUp, render.drawY / render.scaleUp)
+          canvas.scale(render.scaleUp, render.scaleUp)
+          canvas.drawBitmap(render.bitmap, 0f, 0f, shadowDrawPaint)
+          canvas.restore()
+        } else {
+          canvas.drawBitmap(render.bitmap, render.drawX, render.drawY, shadowDrawPaint)
+        }
       }
     }
 
@@ -337,33 +348,49 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   }
 
   private fun rebuildShadowBitmaps(width: Float, height: Float, baseRadii: CornerRadiiPx) {
-    if (shadowSpecs.isEmpty()) return
+    val effectiveSpecs = shadowSpecs.take(maxShadowLayers)
+    if (effectiveSpecs.isEmpty()) return
 
     val old = shadowRenders.toList()
     shadowRenders.clear()
 
     // Reuse a single Canvas instance to avoid allocations.
     val bitmapCanvas = Canvas()
+    val m = Matrix()
+    val shadowPath = Path()
 
-    shadowSpecs.forEachIndexed { index, spec ->
+    effectiveSpecs.forEachIndexed { index, spec ->
         val spread = spec.spreadPx
         val blur = spec.blurPx
 
         // Padding around the content to fit blur + spread.
         val pad = ceil((kotlin.math.abs(spread) + blur).toDouble()).toInt() + 2
 
-        val innerW = (width + 2f * spread).coerceAtLeast(0f)
-        val innerH = (height + 2f * spread).coerceAtLeast(0f)
+        val rawBmpW = (width + 2f * pad).roundToInt().coerceAtLeast(1)
+        val rawBmpH = (height + 2f * pad).roundToInt().coerceAtLeast(1)
+
+        val rawPixels = rawBmpW.toLong() * rawBmpH.toLong()
+        val renderScale =
+          if (rawPixels <= maxShadowBitmapPixels.toLong()) {
+            1f
+          } else {
+            val s = sqrt(maxShadowBitmapPixels.toDouble() / rawPixels.toDouble()).toFloat()
+            s.coerceIn(minShadowBitmapScale, 1f)
+          }
+        val scaleUp = 1f / renderScale
+
+        val bmpW = (rawBmpW * renderScale).roundToInt().coerceAtLeast(1)
+        val bmpH = (rawBmpH * renderScale).roundToInt().coerceAtLeast(1)
+
+        val innerW = ((width + 2f * spread).coerceAtLeast(0f)) * renderScale
+        val innerH = ((height + 2f * spread).coerceAtLeast(0f)) * renderScale
         val radii =
           CornerRadiiPx(
-            topLeft = (baseRadii.topLeft + spread).coerceAtLeast(0f),
-            topRight = (baseRadii.topRight + spread).coerceAtLeast(0f),
-            bottomRight = (baseRadii.bottomRight + spread).coerceAtLeast(0f),
-            bottomLeft = (baseRadii.bottomLeft + spread).coerceAtLeast(0f),
+            topLeft = ((baseRadii.topLeft + spread).coerceAtLeast(0f)) * renderScale,
+            topRight = ((baseRadii.topRight + spread).coerceAtLeast(0f)) * renderScale,
+            bottomRight = ((baseRadii.bottomRight + spread).coerceAtLeast(0f)) * renderScale,
+            bottomLeft = ((baseRadii.bottomLeft + spread).coerceAtLeast(0f)) * renderScale,
           )
-
-        val bmpW = (width + 2f * pad).roundToInt().coerceAtLeast(1)
-        val bmpH = (height + 2f * pad).roundToInt().coerceAtLeast(1)
 
         val reused = old.getOrNull(index)?.bitmap
         val bitmap =
@@ -394,8 +421,9 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
         shadowMaskPaint.style = Paint.Style.FILL
         shadowMaskPaint.color = Color.WHITE
         shadowMaskPaint.alpha = 0xFF
+        val blurScaled = blur * renderScale
         shadowMaskPaint.maskFilter =
-          if (blur > 0f) BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL) else null
+          if (blurScaled > 0f) BlurMaskFilter(blurScaled, BlurMaskFilter.Blur.NORMAL) else null
 
         val squircle =
           SquirclePath(
@@ -407,8 +435,13 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
             radii.bottomLeft,
             cornerSmoothing
           )
-        val m = Matrix().apply { setTranslate((pad - spread), (pad - spread)) }
-        val shadowPath = Path().apply { squircle.transform(m, this) }
+        m.reset()
+        m.setTranslate(
+          ((pad.toFloat() - spread) * renderScale),
+          ((pad.toFloat() - spread) * renderScale)
+        )
+        shadowPath.reset()
+        squircle.transform(m, shadowPath)
         bitmapCanvas.drawPath(shadowPath, shadowMaskPaint)
 
         shadowRenders.add(
@@ -417,12 +450,13 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
             drawX = (-pad + spec.dxPx),
             drawY = (-pad + spec.dyPx),
             colorInt = spec.colorInt,
+            scaleUp = scaleUp,
           )
         )
     }
 
     // Recycle any remaining old bitmaps that were not reused.
-    for (i in shadowSpecs.size until old.size) {
+    for (i in effectiveSpecs.size until old.size) {
       val b = old[i].bitmap
       if (!b.isRecycled) b.recycle()
     }
