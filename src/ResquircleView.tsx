@@ -85,6 +85,11 @@ const useResquircleProps = (
     borderTopEndRadius,
     borderBottomStartRadius,
     borderBottomEndRadius,
+    // outline
+    outlineColor,
+    outlineWidth,
+    outlineOffset,
+    outlineStyle,
     // shadow styles
     boxShadow,
     shadowColor,
@@ -260,6 +265,12 @@ const useResquircleProps = (
           : DEFAULT_CORNER_SMOOTHING,
       clipContent: resolvedOverflow === 'hidden',
       squircleBoxShadow: derivedSquircleBoxShadow,
+      squircleOutlineColor: outlineColor,
+      squircleOutlineWidth: typeof outlineWidth === 'number' ? outlineWidth : 0,
+      squircleOutlineOffset:
+        typeof outlineOffset === 'number' ? outlineOffset : 0,
+      squircleOutlineStyle:
+        typeof outlineStyle === 'string' ? outlineStyle : 'solid',
     }),
     [
       cornerSmoothing,
@@ -269,6 +280,10 @@ const useResquircleProps = (
       flattenedStyle?.backgroundColor,
       flattenedStyle?.borderColor,
       flattenedStyle?.borderWidth,
+      outlineColor,
+      outlineWidth,
+      outlineOffset,
+      outlineStyle,
     ]
   );
 
@@ -284,6 +299,10 @@ const useResquircleProps = (
         // We do our own squircle clipping; keep the host view overflow visible
         // so shadows/borders don't get rectangle-clipped by RN.
         overflow: 'visible',
+        ...(outlineColor != null ? { outlineColor: undefined } : null),
+        ...(outlineWidth != null ? { outlineWidth: undefined } : null),
+        ...(outlineOffset != null ? { outlineOffset: undefined } : null),
+        ...(outlineStyle != null ? { outlineStyle: undefined } : null),
         ...(boxShadow != null ? { boxShadow: undefined } : null),
         ...(shadowColor != null ? { shadowColor: undefined } : null),
         ...(shadowOpacity != null ? { shadowOpacity: undefined } : null),
@@ -295,6 +314,10 @@ const useResquircleProps = (
     [
       containerStyle,
       calculatedPadding,
+      outlineColor,
+      outlineWidth,
+      outlineOffset,
+      outlineStyle,
       boxShadow,
       shadowColor,
       shadowOpacity,

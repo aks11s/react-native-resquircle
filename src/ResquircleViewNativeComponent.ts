@@ -45,6 +45,13 @@ export interface NativeResquircleViewProps extends ViewProps {
    */
   clipContent?: boolean;
   /**
+   * Outline props (dp). Mirrors RN View `outline*` but rendered as squircle.
+   */
+  squircleOutlineColor?: ColorValue;
+  squircleOutlineWidth?: Float;
+  squircleOutlineOffset?: Float;
+  squircleOutlineStyle?: string;
+  /**
    * Back-compat: old example prop. Treated as squircleBackgroundColor.
    */
   color?: ColorValue;

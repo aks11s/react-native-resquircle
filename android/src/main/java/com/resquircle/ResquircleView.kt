@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
@@ -46,8 +47,10 @@ private data class CornerRadiiPx(
 class ResquircleView(context: Context) : ReactViewGroup(context) {
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
   private val borderPaint = Paint(paint)
+  private val outlinePaint = Paint(paint)
   private val path = Path() // fill/border path
   private val clipPath = Path() // inner clip for children
+  private val outlinePath = Path()
   private var shadowSpecs: List<ShadowSpec> = emptyList()
   private val shadowRenders: MutableList<ShadowRender> = mutableListOf()
   private val gpuShadowRenders: MutableList<GpuShadowRender> = mutableListOf()
@@ -74,6 +77,10 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   private var hasPerCornerRadii = false
   private var boxShadowString: String? = null
   private var clipContent: Boolean = false
+  private var outlineColor = 0x00000000
+  private var outlineWidth = 0f // dp
+  private var outlineOffset = 0f // dp
+  private var outlineStyle: String = "solid"
 
   init {
     paint.color = backgroundColorInt
@@ -83,6 +90,11 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     borderPaint.isDither = true
     borderPaint.strokeJoin = Paint.Join.ROUND
     borderPaint.strokeCap = Paint.Cap.ROUND
+
+    outlinePaint.isDither = true
+    outlinePaint.style = Paint.Style.STROKE
+    outlinePaint.strokeJoin = Paint.Join.ROUND
+    outlinePaint.strokeCap = Paint.Cap.ROUND
     setWillNotDraw(false)
   }
 
@@ -146,6 +158,19 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
       borderPaint.style = Paint.Style.STROKE
       borderPaint.strokeWidth = Utils.convertDpToPixel(borderWidth, context)
       canvas.drawPath(path, borderPaint)
+    }
+
+    val outlineWidthPx = Utils.convertDpToPixel(outlineWidth, context)
+    if (outlineWidthPx > 0f && Color.alpha(outlineColor) > 0) {
+      outlinePaint.color = outlineColor
+      outlinePaint.strokeWidth = outlineWidthPx
+      outlinePaint.pathEffect =
+        when (outlineStyle) {
+          "dashed" -> DashPathEffect(floatArrayOf(3f * outlineWidthPx, 2f * outlineWidthPx), 0f)
+          "dotted" -> DashPathEffect(floatArrayOf(outlineWidthPx, 2f * outlineWidthPx), 0f)
+          else -> null
+        }
+      canvas.drawPath(outlinePath, outlinePaint)
     }
   }
 
@@ -218,6 +243,29 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
     innerSquircle.transform(tempMatrix, tempClipPath)
     clipPath.reset()
     clipPath.addPath(tempClipPath)
+
+    // Outline (outside border).
+    outlinePath.reset()
+    val outlineWidthPx = Utils.convertDpToPixel(outlineWidth, context)
+    val outlineOffsetPx = Utils.convertDpToPixel(outlineOffset, context)
+    if (outlineWidthPx > 0f && Color.alpha(outlineColor) > 0) {
+      val outset = (pixelBorderWidth / 2f) + outlineOffsetPx + (outlineWidthPx / 2f)
+      val outlineSquircle =
+        SquirclePath(
+          width + 2f * outset,
+          height + 2f * outset,
+          r.topLeft + outset,
+          r.topRight + outset,
+          r.bottomRight + outset,
+          r.bottomLeft + outset,
+          cornerSmoothing
+        )
+      tempMatrix.reset()
+      tempMatrix.setTranslate(-outset, -outset)
+      tempPath.reset()
+      outlineSquircle.transform(tempMatrix, tempPath)
+      outlinePath.addPath(tempPath)
+    }
   }
 
   private fun effectiveCornerRadiiPx(): CornerRadiiPx {
@@ -558,6 +606,35 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
   fun setClipContent(value: Boolean) {
     if (value == clipContent) return
     clipContent = value
+    invalidate()
+  }
+
+  fun setSquircleOutlineColor(color: Int?) {
+    val c = color ?: 0x00000000
+    if (c == outlineColor) return
+    outlineColor = c
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleOutlineWidth(value: Float) {
+    if (value == outlineWidth) return
+    outlineWidth = value
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleOutlineOffset(value: Float) {
+    if (value == outlineOffset) return
+    outlineOffset = value
+    resetPaths(width.toFloat(), height.toFloat())
+    invalidate()
+  }
+
+  fun setSquircleOutlineStyle(value: String?) {
+    val v = value ?: "solid"
+    if (v == outlineStyle) return
+    outlineStyle = v
     invalidate()
   }
 

@@ -138,6 +138,32 @@ using namespace facebook::react;
         _shadowView.clipContent = NO;
     }
 
+    if (oldViewProps.squircleOutlineColor != newViewProps.squircleOutlineColor) {
+        UIColor *c = RCTUIColorFromSharedColor(newViewProps.squircleOutlineColor);
+        _contentView.squircleOutlineColor = c ?: UIColor.clearColor;
+        _shadowView.squircleOutlineColor = UIColor.clearColor;
+    }
+
+    if (oldViewProps.squircleOutlineWidth != newViewProps.squircleOutlineWidth) {
+        CGFloat w = newViewProps.squircleOutlineWidth;
+        _contentView.squircleOutlineWidth = w;
+        _shadowView.squircleOutlineWidth = 0;
+    }
+
+    if (oldViewProps.squircleOutlineOffset != newViewProps.squircleOutlineOffset) {
+        CGFloat o = newViewProps.squircleOutlineOffset;
+        _contentView.squircleOutlineOffset = o;
+        _shadowView.squircleOutlineOffset = 0;
+    }
+
+    if (oldViewProps.squircleOutlineStyle != newViewProps.squircleOutlineStyle) {
+        NSString *s = newViewProps.squircleOutlineStyle.empty()
+          ? @"solid"
+          : [NSString stringWithUTF8String:newViewProps.squircleOutlineStyle.c_str()];
+        _contentView.squircleOutlineStyle = s;
+        _shadowView.squircleOutlineStyle = @"solid";
+    }
+
     [super updateProps:props oldProps:oldProps];
 }
 
