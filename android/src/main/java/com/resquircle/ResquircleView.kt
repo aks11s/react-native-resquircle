@@ -331,9 +331,8 @@ class ResquircleView(context: Context) : ReactViewGroup(context) {
       rebuildGpuShadowNodes(width, height, baseRadii, shadowSpecs.take(maxShadowLayers))
       clearShadowRenders()
     } else {
-      // GPU-only mode: no shadows on < API 31.
       clearGpuShadowRenders()
-      clearShadowRenders()
+      rebuildShadowBitmaps(width, height, baseRadii)
     }
   }
 
