@@ -160,9 +160,11 @@ const useResquircleProps = (
   ]);
 
   const derivedSquircleBoxShadow = React.useMemo(() => {
-    if (typeof boxShadow === 'string' && boxShadow.trim().length > 0) {
-      return boxShadow;
-    }
+    const normalizedBoxShadow = normalizeRNBoxShadowToCssString(
+      boxShadow,
+      shadowColor as ColorValue | undefined
+    );
+    if (normalizedBoxShadow) return normalizedBoxShadow;
 
     if (
       shadowColor == null &&
@@ -349,6 +351,76 @@ const colorToRgbaString = (color: ColorValue | undefined, opacity?: number) => {
       ? Math.max(0, Math.min(1, baseAlpha * opacity))
       : Math.max(0, Math.min(1, baseAlpha));
   return `rgba(${r}, ${g}, ${b}, ${finalAlpha})`;
+};
+
+type RNBoxShadowValue = {
+  offsetX?: number;
+  offsetY?: number;
+  blurRadius?: number;
+  spreadDistance?: number;
+  color?: ColorValue;
+  inset?: boolean;
+  // Some RN internals/typed usages may pass offset object.
+  offset?: { width?: number; height?: number };
+};
+
+const normalizeRNBoxShadowToCssString = (
+  boxShadow: unknown,
+  fallbackColor?: ColorValue
+): string | undefined => {
+  if (typeof boxShadow === 'string') {
+    const s = boxShadow.trim();
+    return s.length > 0 ? s : undefined;
+  }
+
+  if (Array.isArray(boxShadow)) {
+    const parts = boxShadow
+      .map((v) => rnBoxShadowValueToCssPart(v, fallbackColor))
+      .filter(Boolean) as string[];
+    return parts.length > 0 ? parts.join(', ') : undefined;
+  }
+
+  if (boxShadow != null && typeof boxShadow === 'object') {
+    const part = rnBoxShadowValueToCssPart(boxShadow, fallbackColor);
+    return part ?? undefined;
+  }
+
+  return undefined;
+};
+
+const rnBoxShadowValueToCssPart = (
+  value: unknown,
+  fallbackColor?: ColorValue
+): string | undefined => {
+  if (value == null || typeof value !== 'object') return undefined;
+  const v = value as RNBoxShadowValue;
+  if (v.inset) return undefined;
+
+  const offsetX =
+    typeof v.offsetX === 'number'
+      ? v.offsetX
+      : typeof v.offset?.width === 'number'
+        ? v.offset.width
+        : 0;
+  const offsetY =
+    typeof v.offsetY === 'number'
+      ? v.offsetY
+      : typeof v.offset?.height === 'number'
+        ? v.offset.height
+        : 0;
+  const blur = typeof v.blurRadius === 'number' ? v.blurRadius : 0;
+  const spread =
+    typeof v.spreadDistance === 'number'
+      ? v.spreadDistance
+      : // Some typed libs use `spread` instead of `spreadDistance`
+        typeof (v as any).spread === 'number'
+        ? (v as any).spread
+        : 0;
+
+  const rgba = colorToRgbaString(v.color ?? fallbackColor ?? 'black');
+  if (!rgba) return undefined;
+
+  return `${offsetX}px ${offsetY}px ${blur}px ${spread}px ${rgba}`;
 };
 
 const styles = StyleSheet.create({
