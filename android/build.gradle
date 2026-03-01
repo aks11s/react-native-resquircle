@@ -112,3 +112,9 @@ android {
 dependencies {
   implementation "com.facebook.react:react-android"
 }
+
+react {
+  jsRootDir = file("../src/")
+  libraryName = "ResquircleViewSpec"
+  codegenJavaPackageName = "com.resquircle"
+}
