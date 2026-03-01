@@ -45,6 +45,8 @@ jobs:
         run: node scripts/override-rn-versions.js
 
       - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
         run: yarn install
 
       - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
@@ -96,6 +98,8 @@ jobs:
         run: node scripts/override-rn-versions.js
 
       - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
         run: yarn install
 
       - name: Build library
