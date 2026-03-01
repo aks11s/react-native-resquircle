@@ -10568,10 +10568,11 @@ __metadata:
     react-native: "npm:0.80.0"
     react-native-builder-bob: "npm:^0.40.13"
     react-native-monorepo-config: "npm:^0.3.3"
+    react-native-resquircle: "workspace:*"
   languageName: unknown
   linkType: soft
 
-"react-native-resquircle@workspace:.":
+"react-native-resquircle@workspace:*, react-native-resquircle@workspace:.":
   version: 0.0.0-use.local
   resolution: "react-native-resquircle@workspace:."
   dependencies:
