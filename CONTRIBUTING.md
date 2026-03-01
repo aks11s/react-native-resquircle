@@ -111,7 +111,7 @@ yarn release
 
 ### Testing multiple React Native versions
 
-CI runs against RN 0.72, 0.74, 0.76, 0.78, 0.80, 0.82, 0.83 (see `.github/workflows/test-rn-versions.yml`). All use New Arch.
+CI runs against RN 0.72, 0.74, 0.76, 0.78, 0.80, 0.82, 0.83 (scripts/override-rn-versions.js) (see `.github/workflows/test-rn-versions.yml`). All use New Arch.
 
 To test locally with a specific RN version:
 

@@ -19,17 +19,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rn:
-          - '0.72.7'   # Fabric interop layer
-          - '0.74.7'
-          - '0.76.8'   # New Arch default
-          - '0.78.14'
-          - '0.80.0'
-          - '0.82.0'   # New Arch обязателен
-          - '0.83.0'
+        include:
+          - rn: '0.72.7'
+            react: '18.2.0'
+            cli: '11.3.10'
+          - rn: '0.74.7'
+            react: '18.2.0'
+            cli: '13.6.9'
+          - rn: '0.76.8'
+            react: '18.2.0'
+            cli: '14.1.0'
+          - rn: '0.78.0'
+            react: '19.2.0'
+            cli: '15.1.3'
+          - rn: '0.80.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.82.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.83.0'
+            react: '19.2.0'
+            cli: '20.0.0'
 
     env:
-      RN_VERSION: ${{ matrix.rn }}
       TURBO_CACHE_DIR: .turbo/android-rn-${{ matrix.rn }}
 
     steps:
@@ -39,18 +52,12 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Override RN version in example
-        run: |
-          cd example
-          node -e "
-            const rn = '${{ matrix.rn }}';
-            const pkg = require('./package.json');
-            pkg.dependencies['react-native'] = rn;
-            for (const k of Object.keys(pkg.devDependencies || {})) {
-              if (k.startsWith('@react-native/')) pkg.devDependencies[k] = rn;
-            }
-            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-          "
+      - name: Override RN stack for ${{ matrix.rn }}
+        env:
+          RN_VERSION: ${{ matrix.rn }}
+          REACT_VERSION: ${{ matrix.react }}
+          CLI_VERSION: ${{ matrix.cli }}
+        run: node scripts/override-rn-versions.js
 
       - name: Install
         run: yarn install
@@ -65,7 +72,7 @@ jobs:
       - name: Build library
         run: yarn prepare
 
-      - name: Build Android (RN ${{ matrix.rn }})
+      - name: Build Android
         env:
           JAVA_OPTS: "-XX:MaxHeapSize=6g"
         run: |
@@ -77,17 +84,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rn:
-          - '0.72.7'
-          - '0.74.7'
-          - '0.76.8'
-          - '0.78.14'
-          - '0.80.0'
-          - '0.82.0'
-          - '0.83.0'
+        include:
+          - rn: '0.72.7'
+            react: '18.2.0'
+            cli: '11.3.10'
+          - rn: '0.74.7'
+            react: '18.2.0'
+            cli: '13.6.9'
+          - rn: '0.76.8'
+            react: '18.2.0'
+            cli: '14.1.0'
+          - rn: '0.78.0'
+            react: '19.2.0'
+            cli: '15.1.3'
+          - rn: '0.80.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.82.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.83.0'
+            react: '19.2.0'
+            cli: '20.0.0'
 
     env:
-      RN_VERSION: ${{ matrix.rn }}
       RCT_USE_RN_DEP: 1
       RCT_USE_PREBUILT_RNCORE: 1
 
@@ -98,18 +118,12 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Override RN version in example
-        run: |
-          cd example
-          node -e "
-            const rn = '${{ matrix.rn }}';
-            const pkg = require('./package.json');
-            pkg.dependencies['react-native'] = rn;
-            for (const k of Object.keys(pkg.devDependencies || {})) {
-              if (k.startsWith('@react-native/')) pkg.devDependencies[k] = rn;
-            }
-            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-          "
+      - name: Override RN stack for ${{ matrix.rn }}
+        env:
+          RN_VERSION: ${{ matrix.rn }}
+          REACT_VERSION: ${{ matrix.react }}
+          CLI_VERSION: ${{ matrix.cli }}
+        run: node scripts/override-rn-versions.js
 
       - name: Install
         run: yarn install
@@ -123,7 +137,7 @@ jobs:
           bundle install
           bundle exec pod install --project-directory=ios
 
-      - name: Build iOS (RN ${{ matrix.rn }})
+      - name: Build iOS
         run: |
           cd example
           yarn build:ios
