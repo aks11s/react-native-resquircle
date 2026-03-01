@@ -17,14 +17,17 @@ const examplePath = path.join(__dirname, '..', 'example', 'package.json');
 const root = JSON.parse(fs.readFileSync(rootPath, 'utf8'));
 const example = JSON.parse(fs.readFileSync(examplePath, 'utf8'));
 
-root.resolutions = {
-  'react-native': rn,
-  react,
-  '@react-native/*': rn,
-  '@react-native-community/cli': cli,
-  '@react-native-community/cli-platform-android': cli,
-  '@react-native-community/cli-platform-ios': cli,
-};
+// Resolutions only for RN < 0.80 (React 18) — иначе конфликты с root
+const needsResolutions = react.startsWith('18');
+if (needsResolutions) {
+  root.resolutions = {
+    'react-native': rn,
+    react,
+    '@react-native-community/cli': cli,
+    '@react-native-community/cli-platform-android': cli,
+    '@react-native-community/cli-platform-ios': cli,
+  };
+}
 
 example.dependencies['react-native'] = rn;
 example.dependencies['react'] = react;
