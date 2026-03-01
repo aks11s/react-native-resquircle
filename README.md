@@ -1,5 +1,7 @@
 # react-native-resquircle
 
+[![CI](https://github.com/wS9w/react-native-resquircle/actions/workflows/ci.yml/badge.svg)](https://github.com/wS9w/react-native-resquircle/actions/workflows/ci.yml)
+
 High-performance native squircle (superellipse) implementation for React Native on iOS and Android
 
 ## Installation

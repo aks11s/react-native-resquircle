@@ -154,8 +154,17 @@ jobs:
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
+      - name: Cache CocoaPods
+        if: env.turbo_cache_hit != 1
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: example/ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('example/package.json', 'example/ios/Podfile', 'example/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
       - name: Install cocoapods
-        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
+        if: env.turbo_cache_hit != 1
         run: |
           cd example
           bundle install
