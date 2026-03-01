@@ -1,0 +1,129 @@
+# Проверка либы на RN 0.72–0.83 с New Arch
+name: Test RN versions
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: test-rn-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-android:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rn:
+          - '0.72.7'   # Fabric interop layer
+          - '0.74.7'
+          - '0.76.8'   # New Arch default
+          - '0.78.14'
+          - '0.80.0'
+          - '0.82.0'   # New Arch обязателен
+          - '0.83.0'
+
+    env:
+      RN_VERSION: ${{ matrix.rn }}
+      TURBO_CACHE_DIR: .turbo/android-rn-${{ matrix.rn }}
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+
+      - name: Override RN version in example
+        run: |
+          cd example
+          node -e "
+            const rn = '${{ matrix.rn }}';
+            const pkg = require('./package.json');
+            pkg.dependencies['react-native'] = rn;
+            for (const k of Object.keys(pkg.devDependencies || {})) {
+              if (k.startsWith('@react-native/')) pkg.devDependencies[k] = rn;
+            }
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - name: Install
+        run: yarn install
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - run: /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null" 2>/dev/null || true
+
+      - name: Build library
+        run: yarn prepare
+
+      - name: Build Android (RN ${{ matrix.rn }})
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+        run: |
+          cd example
+          yarn build:android
+
+  test-ios:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rn:
+          - '0.72.7'
+          - '0.74.7'
+          - '0.76.8'
+          - '0.78.14'
+          - '0.80.0'
+          - '0.82.0'
+          - '0.83.0'
+
+    env:
+      RN_VERSION: ${{ matrix.rn }}
+      RCT_USE_RN_DEP: 1
+      RCT_USE_PREBUILT_RNCORE: 1
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+
+      - name: Override RN version in example
+        run: |
+          cd example
+          node -e "
+            const rn = '${{ matrix.rn }}';
+            const pkg = require('./package.json');
+            pkg.dependencies['react-native'] = rn;
+            for (const k of Object.keys(pkg.devDependencies || {})) {
+              if (k.startsWith('@react-native/')) pkg.devDependencies[k] = rn;
+            }
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - name: Install
+        run: yarn install
+
+      - name: Build library
+        run: yarn prepare
+
+      - name: Pod install
+        run: |
+          cd example
+          bundle install
+          bundle exec pod install --project-directory=ios
+
+      - name: Build iOS (RN ${{ matrix.rn }})
+        run: |
+          cd example
+          yarn build:ios
