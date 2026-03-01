@@ -1,23 +1,27 @@
 /**
- * Runtime wrapper with global cache to avoid "Tried to register two views
- * with the same name" on branch switch / Fast Refresh. The actual spec
- * for codegen lives in ResquircleViewCodegen.ts (codegen requires direct
- * "export default codegenNativeComponent(...)" which combine-js-to-schema
- * regex matches).
+ * Runtime entry. Uses require() so we only load the spec when cache is empty —
+ * avoids "Tried to register two views with the same name" on Fast Refresh / branch switch.
+ * Spec: ResquircleViewSpecNativeComponent has codegenNativeComponent<Props>.
  */
-import CodegenComponent from './ResquircleViewSpecNativeComponent';
+import type { NativeResquircleViewProps } from './ResquircleViewSpecNativeComponent';
+import type { HostComponent } from 'react-native';
 
-export type { NativeResquircleViewProps } from './ResquircleViewSpecNativeComponent';
+export type { NativeResquircleViewProps };
 
-const GLOBAL_CACHE_KEY = '__react_native_resquircle_NativeComponent';
+const KEY = '__react_native_resquircle_NativeComponent';
 
-function getNativeResquircleView() {
-  const g = typeof global !== 'undefined' ? global : ({} as any);
-  if (g[GLOBAL_CACHE_KEY]) {
-    return g[GLOBAL_CACHE_KEY];
-  }
-  g[GLOBAL_CACHE_KEY] = CodegenComponent;
-  return CodegenComponent;
+function get(): HostComponent<NativeResquircleViewProps> {
+  const g = (
+    typeof global !== 'undefined'
+      ? global
+      : typeof globalThis !== 'undefined'
+      ? globalThis
+      : {}
+  ) as Record<string, HostComponent<NativeResquircleViewProps>>;
+  if (g[KEY]) return g[KEY];
+  g[KEY] = require('./ResquircleViewSpecNativeComponent')
+    .default as HostComponent<NativeResquircleViewProps>;
+  return g[KEY];
 }
 
-export default getNativeResquircleView();
+export default get();
