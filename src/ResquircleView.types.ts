@@ -19,15 +19,15 @@ type ResquircleProps = {
   overflow?: 'visible' | 'hidden';
 };
 
-export type ResquircleViewProps = Omit<ViewProps, 'style'> &
+export type SquircleViewProps = Omit<ViewProps, 'style'> &
   ResquircleProps & {
     style?: StyleProp<ViewStyle>;
   };
 
-export type ResquircleButtonProps = Omit<PressableProps, 'style'> &
+export type SquircleButtonProps = Omit<PressableProps, 'style'> &
   ResquircleProps & {
     /**
-     * Applied to the underlying `ResquircleView` (not to `Pressable`).
+     * Applied to the underlying `SquircleView` (not to `Pressable`).
      */
     style?: StyleProp<ViewStyle>;
     activeOpacity?: number;

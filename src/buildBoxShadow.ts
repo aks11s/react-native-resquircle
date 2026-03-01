@@ -68,17 +68,35 @@ const parseColor = (
     const isHex = /^[0-9a-fA-F]+$/.test(hex);
     if (!isHex) return undefined;
 
-    const expand3 = (h: string) => h.split('').map((c) => c + c).join('');
+    const expand3 = (h: string) =>
+      h
+        .split('')
+        .map((c) => c + c)
+        .join('');
 
     if (hex.length === 3) {
       const full = expand3(hex);
       const bigint = parseInt(full, 16);
-      return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255, a: 1 };
+      /* eslint-disable no-bitwise */
+      return {
+        r: (bigint >> 16) & 255,
+        g: (bigint >> 8) & 255,
+        b: bigint & 255,
+        a: 1,
+      };
+      /* eslint-enable no-bitwise */
     }
 
     if (hex.length === 6) {
       const bigint = parseInt(hex, 16);
-      return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255, a: 1 };
+      /* eslint-disable no-bitwise */
+      return {
+        r: (bigint >> 16) & 255,
+        g: (bigint >> 8) & 255,
+        b: bigint & 255,
+        a: 1,
+      };
+      /* eslint-enable no-bitwise */
     }
 
     if (hex.length === 8) {
@@ -87,10 +105,16 @@ const parseColor = (
       const aa = hex.slice(6, 8);
       const rgb = parseInt(rrggbb, 16);
       const a = parseInt(aa, 16) / 255;
-      return { r: (rgb >> 16) & 255, g: (rgb >> 8) & 255, b: rgb & 255, a: clamp01(a) };
+      /* eslint-disable no-bitwise */
+      return {
+        r: (rgb >> 16) & 255,
+        g: (rgb >> 8) & 255,
+        b: rgb & 255,
+        a: clamp01(a),
+      };
+      /* eslint-enable no-bitwise */
     }
   }
 
   return undefined;
 };
-  

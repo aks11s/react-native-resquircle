@@ -14,11 +14,11 @@ npm install react-native-resquircle
 
 
 ```js
-import { ResquircleView } from "react-native-resquircle";
+import { SquircleView } from "react-native-resquircle";
 
 // ...
 
-<ResquircleView color="tomato" />
+<SquircleView style={{ backgroundColor: "tomato" }} />
 ```
 
 
