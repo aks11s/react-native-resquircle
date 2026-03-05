@@ -1,7 +1,6 @@
 package com.resquircle
 
 import android.graphics.Color
-import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
@@ -156,20 +155,4 @@ private class ViewManagerWrapper(private val baseVm: ResquircleViewManager) :
 
   override fun setSquircleOutlineStyle(view: ResquircleView?, value: String?) =
     baseVm.setSquircleOutlineStyle(view, value)
-}
-
-private class SplitDelegate(
-  private val baseDelegate: ViewManagerDelegate<ReactViewGroup>,
-  private val specificDelegate: ViewManagerDelegate<ResquircleView>
-) : ViewManagerDelegate<ReactViewGroup> {
-
-  override fun setProperty(view: ReactViewGroup, propName: String, value: Any?) {
-    baseDelegate.setProperty(view, propName, value)
-    if (view is ResquircleView) specificDelegate.setProperty(view, propName, value)
-  }
-
-  override fun receiveCommand(view: ReactViewGroup, commandName: String, args: ReadableArray) {
-    baseDelegate.receiveCommand(view, commandName, args)
-    if (view is ResquircleView) specificDelegate.receiveCommand(view, commandName, args)
-  }
 }
