@@ -1,5 +1,6 @@
 // scripts/override-rn-versions.js
 const fs = require('fs');
+const path = require('path');
 const { execSync } = require('child_process');
 
 const RN_VERSION = process.env.RN_VERSION;
@@ -15,23 +16,6 @@ console.log(
   `Overriding versions to: RN=${RN_VERSION}, React=${REACT_VERSION}, CLI=${CLI_VERSION}`
 );
 
-// Читаем package.json
-const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-
-// Обновляем зависимости
-packageJson.devDependencies = packageJson.devDependencies || {};
-
-// Обновляем react-native
-packageJson.devDependencies['react-native'] = RN_VERSION;
-
-// Обновляем @react-native-community/cli
-packageJson.devDependencies['@react-native-community/cli'] = CLI_VERSION;
-
-// Обновляем react
-packageJson.devDependencies.react = REACT_VERSION;
-packageJson.devDependencies['react-test-renderer'] = REACT_VERSION;
-
-// Функция для проверки существования версии пакета
 function checkPackageVersion(packageName, version) {
   try {
     execSync(`npm view ${packageName}@${version} version`, {
@@ -43,69 +27,117 @@ function checkPackageVersion(packageName, version) {
   }
 }
 
-// Проверяем существование @react-native/babel-preset для этой версии
-const babelPresetExists = checkPackageVersion(
-  '@react-native/babel-preset',
-  RN_VERSION
-);
-
-if (babelPresetExists) {
-  console.log(`✅ @react-native/babel-preset@${RN_VERSION} exists`);
-  packageJson.devDependencies['@react-native/babel-preset'] = RN_VERSION;
-} else {
-  console.log(`❌ @react-native/babel-preset@${RN_VERSION} not found`);
-
-  // Парсим версию для fallback
-  const [major, minor, patch] = RN_VERSION.split('.').map(Number);
-
-  // Стратегия fallback: пробуем увеличить patch на 1, потом уменьшить на 1
+function resolveBabelPresetVersion(rnVersion) {
+  if (checkPackageVersion('@react-native/babel-preset', rnVersion)) {
+    return rnVersion;
+  }
+  const [major, minor, patch] = rnVersion.split('.').map(Number);
   const fallbacks = [
-    `${major}.${minor}.${patch + 1}`, // следующая патч-версия
-    `${major}.${minor}.${Math.max(0, patch - 1)}`, // предыдущая патч-версия
-    `${major}.${minor}.0`, // первый патч этой минорной версии
+    `${major}.${minor}.${patch + 1}`,
+    `${major}.${minor}.${Math.max(0, patch - 1)}`,
+    `${major}.${minor}.0`,
   ];
-
-  let found = false;
   for (const fbVersion of fallbacks) {
-    const fbExists = checkPackageVersion(
-      '@react-native/babel-preset',
-      fbVersion
-    );
-
-    if (fbExists) {
-      console.log(`✅ Using fallback @react-native/babel-preset@${fbVersion}`);
-      packageJson.devDependencies['@react-native/babel-preset'] = fbVersion;
-      found = true;
-      break;
-    } else {
-      console.log(`❌ Fallback ${fbVersion} not found`);
+    if (checkPackageVersion('@react-native/babel-preset', fbVersion)) {
+      return fbVersion;
     }
   }
-
-  if (!found) {
-    console.log('⚠️ No fallback found, using latest 0.72.x version');
-    // Последний fallback - самая свежая версия в этой мажорной линии
-    try {
-      const latestInLine = execSync(
-        `npm view @react-native/babel-preset@${major}.${minor}.x version`,
-        { stdio: 'pipe' }
-      )
-        .toString()
-        .trim();
-
-      console.log(
-        `✅ Using latest in line: @react-native/babel-preset@${latestInLine}`
-      );
-      packageJson.devDependencies['@react-native/babel-preset'] = latestInLine;
-    } catch {
-      console.error(
-        '❌ Critical: Cannot find any suitable @react-native/babel-preset'
-      );
-      process.exit(1);
-    }
+  try {
+    return execSync(
+      `npm view @react-native/babel-preset@${major}.${minor}.x version`,
+      { stdio: 'pipe' }
+    )
+      .toString()
+      .trim();
+  } catch {
+    throw new Error(`No suitable @react-native/babel-preset for ${rnVersion}`);
   }
 }
 
-// Сохраняем package.json
+function resolveOptionalPackage(packageName, preferredVersion) {
+  if (checkPackageVersion(packageName, preferredVersion)) {
+    return preferredVersion;
+  }
+  const [major, minor] = preferredVersion.split('.');
+  const prefix = `${major}.${minor}.`;
+  try {
+    const out = execSync(`npm view ${packageName} versions --json`, {
+      stdio: 'pipe',
+    }).toString();
+    const versions = JSON.parse(out);
+    const matching = versions.filter((v) => v.startsWith(prefix));
+    if (!matching.length) return null;
+    matching.sort((a, b) => {
+      const pa = a.split('.').map(Number);
+      const pb = b.split('.').map(Number);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const d = (pa[i] || 0) - (pb[i] || 0);
+        if (d !== 0) return d;
+      }
+      return 0;
+    });
+    return matching[matching.length - 1];
+  } catch {
+    return null;
+  }
+}
+
+// --- Root package.json ---
+const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+packageJson.devDependencies = packageJson.devDependencies || {};
+
+packageJson.devDependencies['react-native'] = RN_VERSION;
+packageJson.devDependencies['@react-native-community/cli'] = CLI_VERSION;
+packageJson.devDependencies.react = REACT_VERSION;
+packageJson.devDependencies['react-test-renderer'] = REACT_VERSION;
+
+const babelPresetVersion = resolveBabelPresetVersion(RN_VERSION);
+packageJson.devDependencies['@react-native/babel-preset'] = babelPresetVersion;
+console.log(`✅ Root: @react-native/babel-preset@${babelPresetVersion}`);
+
 fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2));
-console.log('✅ package.json updated successfully');
+console.log('✅ Root package.json updated');
+
+// --- Example package.json ---
+const examplePath = path.join(__dirname, '..', 'example', 'package.json');
+const exampleJson = JSON.parse(fs.readFileSync(examplePath, 'utf8'));
+
+exampleJson.dependencies = exampleJson.dependencies || {};
+exampleJson.devDependencies = exampleJson.devDependencies || {};
+
+exampleJson.dependencies.react = REACT_VERSION;
+exampleJson.dependencies['react-native'] = RN_VERSION;
+
+exampleJson.devDependencies['@react-native-community/cli'] = CLI_VERSION;
+exampleJson.devDependencies['@react-native-community/cli-platform-android'] =
+  CLI_VERSION;
+exampleJson.devDependencies['@react-native-community/cli-platform-ios'] =
+  CLI_VERSION;
+exampleJson.devDependencies['@react-native/babel-preset'] = babelPresetVersion;
+
+const metroVersion = checkPackageVersion(
+  '@react-native/metro-config',
+  RN_VERSION
+)
+  ? RN_VERSION
+  : resolveOptionalPackage('@react-native/metro-config', RN_VERSION) ??
+    babelPresetVersion;
+exampleJson.devDependencies['@react-native/metro-config'] = metroVersion;
+
+const tsConfigVersion = checkPackageVersion(
+  '@react-native/typescript-config',
+  RN_VERSION
+)
+  ? RN_VERSION
+  : resolveOptionalPackage('@react-native/typescript-config', RN_VERSION);
+if (tsConfigVersion) {
+  exampleJson.devDependencies['@react-native/typescript-config'] =
+    tsConfigVersion;
+}
+
+const reactMajor = parseInt(REACT_VERSION.split('.')[0], 10);
+exampleJson.devDependencies['@types/react'] =
+  reactMajor >= 19 ? '^19.2.0' : '^18.2.0';
+
+fs.writeFileSync(examplePath, JSON.stringify(exampleJson, null, 2));
+console.log('✅ Example package.json updated');

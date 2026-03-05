@@ -60,6 +60,8 @@ jobs:
         run: node scripts/override-rn-versions.js
 
       - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: yarn install
 
       - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
@@ -129,12 +131,22 @@ jobs:
         run: node scripts/override-rn-versions.js
 
       - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: yarn install
 
       - name: Build library
         run: yarn prepare
 
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: '16.1'  # RN 0.82/0.83 require 16.1+
+
       - name: Pod install
+        env:
+          LANG: en_US.UTF-8
+          LC_ALL: en_US.UTF-8
         run: |
           cd example
           bundle install
