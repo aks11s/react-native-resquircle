@@ -1,4 +1,3 @@
-// scripts/override-rn-versions.js
 const fs = require('fs');
 const { execSync } = require('child_process');
 
@@ -15,23 +14,14 @@ console.log(
   `Overriding versions to: RN=${RN_VERSION}, React=${REACT_VERSION}, CLI=${CLI_VERSION}`
 );
 
-// Читаем package.json
 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
-// Обновляем зависимости
 packageJson.devDependencies = packageJson.devDependencies || {};
-
-// Обновляем react-native
 packageJson.devDependencies['react-native'] = RN_VERSION;
-
-// Обновляем @react-native-community/cli
 packageJson.devDependencies['@react-native-community/cli'] = CLI_VERSION;
-
-// Обновляем react
 packageJson.devDependencies.react = REACT_VERSION;
 packageJson.devDependencies['react-test-renderer'] = REACT_VERSION;
 
-// Функция для проверки существования версии пакета
 function checkPackageVersion(packageName, version) {
   try {
     execSync(`npm view ${packageName}@${version} version`, {
@@ -43,7 +33,6 @@ function checkPackageVersion(packageName, version) {
   }
 }
 
-// Проверяем существование @react-native/babel-preset для этой версии
 const babelPresetExists = checkPackageVersion(
   '@react-native/babel-preset',
   RN_VERSION
@@ -55,14 +44,12 @@ if (babelPresetExists) {
 } else {
   console.log(`❌ @react-native/babel-preset@${RN_VERSION} not found`);
 
-  // Парсим версию для fallback
   const [major, minor, patch] = RN_VERSION.split('.').map(Number);
 
-  // Стратегия fallback: пробуем увеличить patch на 1, потом уменьшить на 1
   const fallbacks = [
-    `${major}.${minor}.${patch + 1}`, // следующая патч-версия
-    `${major}.${minor}.${Math.max(0, patch - 1)}`, // предыдущая патч-версия
-    `${major}.${minor}.0`, // первый патч этой минорной версии
+    `${major}.${minor}.${patch + 1}`,
+    `${major}.${minor}.${Math.max(0, patch - 1)}`,
+    `${major}.${minor}.0`,
   ];
 
   let found = false;
@@ -84,7 +71,6 @@ if (babelPresetExists) {
 
   if (!found) {
     console.log('⚠️ No fallback found, using latest 0.72.x version');
-    // Последний fallback - самая свежая версия в этой мажорной линии
     try {
       const latestInLine = execSync(
         `npm view @react-native/babel-preset@${major}.${minor}.x version`,
@@ -106,6 +92,28 @@ if (babelPresetExists) {
   }
 }
 
-// Сохраняем package.json
 fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2));
 console.log('✅ package.json updated successfully');
+
+const examplePath = 'example/package.json';
+if (fs.existsSync(examplePath)) {
+  const exampleJson = JSON.parse(fs.readFileSync(examplePath, 'utf8'));
+
+  const deps = exampleJson.dependencies || {};
+  deps.react = REACT_VERSION;
+  deps['react-native'] = RN_VERSION;
+  exampleJson.dependencies = deps;
+
+  const devDeps = exampleJson.devDependencies || {};
+  devDeps['@react-native-community/cli'] = CLI_VERSION;
+  devDeps['@react-native/babel-preset'] =
+    packageJson.devDependencies['@react-native/babel-preset'];
+  if (devDeps['@react-native/metro-config'] !== undefined)
+    devDeps['@react-native/metro-config'] = RN_VERSION;
+  if (devDeps['@react-native/typescript-config'] !== undefined)
+    devDeps['@react-native/typescript-config'] = RN_VERSION;
+  exampleJson.devDependencies = devDeps;
+
+  fs.writeFileSync(examplePath, JSON.stringify(exampleJson, null, 2));
+  console.log('✅ example/package.json updated successfully');
+}
