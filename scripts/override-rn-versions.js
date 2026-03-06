@@ -33,64 +33,45 @@ function checkPackageVersion(packageName, version) {
   }
 }
 
-const babelPresetExists = checkPackageVersion(
-  '@react-native/babel-preset',
-  RN_VERSION
-);
-
-if (babelPresetExists) {
-  console.log(`✅ @react-native/babel-preset@${RN_VERSION} exists`);
-  packageJson.devDependencies['@react-native/babel-preset'] = RN_VERSION;
-} else {
-  console.log(`❌ @react-native/babel-preset@${RN_VERSION} not found`);
-
-  const [major, minor, patch] = RN_VERSION.split('.').map(Number);
-
+function resolvePackageVersion(packageName, preferredVersion) {
+  if (checkPackageVersion(packageName, preferredVersion))
+    return preferredVersion;
+  const [major, minor, patch] = preferredVersion.split('.').map(Number);
   const fallbacks = [
     `${major}.${minor}.${patch + 1}`,
     `${major}.${minor}.${Math.max(0, patch - 1)}`,
     `${major}.${minor}.0`,
   ];
-
-  let found = false;
-  for (const fbVersion of fallbacks) {
-    const fbExists = checkPackageVersion(
-      '@react-native/babel-preset',
-      fbVersion
-    );
-
-    if (fbExists) {
-      console.log(`✅ Using fallback @react-native/babel-preset@${fbVersion}`);
-      packageJson.devDependencies['@react-native/babel-preset'] = fbVersion;
-      found = true;
-      break;
-    } else {
-      console.log(`❌ Fallback ${fbVersion} not found`);
-    }
+  for (const v of fallbacks) {
+    if (checkPackageVersion(packageName, v)) return v;
   }
-
-  if (!found) {
-    console.log('⚠️ No fallback found, using latest 0.72.x version');
-    try {
-      const latestInLine = execSync(
-        `npm view @react-native/babel-preset@${major}.${minor}.x version`,
-        { stdio: 'pipe' }
-      )
-        .toString()
-        .trim();
-
-      console.log(
-        `✅ Using latest in line: @react-native/babel-preset@${latestInLine}`
-      );
-      packageJson.devDependencies['@react-native/babel-preset'] = latestInLine;
-    } catch {
-      console.error(
-        '❌ Critical: Cannot find any suitable @react-native/babel-preset'
-      );
-      process.exit(1);
-    }
+  try {
+    return execSync(`npm view ${packageName}@${major}.${minor}.x version`, {
+      stdio: 'pipe',
+    })
+      .toString()
+      .trim();
+  } catch {
+    return null;
   }
 }
+
+if (RN_VERSION.startsWith('0.72')) {
+  console.error(
+    'RN 0.72 is not supported: @react-native/babel-preset was introduced in 0.73'
+  );
+  process.exit(1);
+}
+
+const babelPresetVersion = resolvePackageVersion(
+  '@react-native/babel-preset',
+  RN_VERSION
+);
+if (!babelPresetVersion) {
+  console.error('Cannot find suitable @react-native/babel-preset');
+  process.exit(1);
+}
+packageJson.devDependencies['@react-native/babel-preset'] = babelPresetVersion;
 
 fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2));
 console.log('✅ package.json updated successfully');
@@ -106,12 +87,26 @@ if (fs.existsSync(examplePath)) {
 
   const devDeps = exampleJson.devDependencies || {};
   devDeps['@react-native-community/cli'] = CLI_VERSION;
+  if (devDeps['@react-native-community/cli-platform-android'] !== undefined)
+    devDeps['@react-native-community/cli-platform-android'] = CLI_VERSION;
+  if (devDeps['@react-native-community/cli-platform-ios'] !== undefined)
+    devDeps['@react-native-community/cli-platform-ios'] = CLI_VERSION;
   devDeps['@react-native/babel-preset'] =
     packageJson.devDependencies['@react-native/babel-preset'];
-  if (devDeps['@react-native/metro-config'] !== undefined)
-    devDeps['@react-native/metro-config'] = RN_VERSION;
-  if (devDeps['@react-native/typescript-config'] !== undefined)
-    devDeps['@react-native/typescript-config'] = RN_VERSION;
+  if (devDeps['@react-native/metro-config'] !== undefined) {
+    const metroVersion = resolvePackageVersion(
+      '@react-native/metro-config',
+      RN_VERSION
+    );
+    if (metroVersion) devDeps['@react-native/metro-config'] = metroVersion;
+  }
+  if (devDeps['@react-native/typescript-config'] !== undefined) {
+    const tsVersion = resolvePackageVersion(
+      '@react-native/typescript-config',
+      RN_VERSION
+    );
+    if (tsVersion) devDeps['@react-native/typescript-config'] = tsVersion;
+  }
   exampleJson.devDependencies = devDeps;
 
   fs.writeFileSync(examplePath, JSON.stringify(exampleJson, null, 2));
