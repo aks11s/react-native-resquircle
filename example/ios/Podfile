@@ -7,6 +7,9 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
+# Workaround: RN 0.83 requires Xcode 16.1+, skip check for 16.0
+ReactNativePodsUtils.define_singleton_method(:check_minimum_required_xcode) { {} }
+
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 

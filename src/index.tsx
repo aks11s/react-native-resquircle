@@ -1,7 +1,7 @@
-export { ResquircleButton, ResquircleView } from './ResquircleView';
+export { SquircleButton, SquircleView } from './ResquircleView';
 export type {
-  ResquircleButtonProps,
-  ResquircleViewProps,
+  SquircleButtonProps,
+  SquircleViewProps,
 } from './ResquircleView.types';
 export { buildBoxShadow } from './buildBoxShadow';
 export type { NativeResquircleViewProps } from './ResquircleViewNativeComponent';

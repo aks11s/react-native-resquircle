@@ -1,0 +1,130 @@
+name: Test RN versions
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: test-rn-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-android:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rn: '0.80.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.82.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.83.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+
+    env:
+      TURBO_CACHE_DIR: .turbo/android-rn-${{ matrix.rn }}
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Override RN stack for ${{ matrix.rn }}
+        env:
+          RN_VERSION: ${{ matrix.rn }}
+          REACT_VERSION: ${{ matrix.react }}
+          CLI_VERSION: ${{ matrix.cli }}
+        run: node scripts/override-rn-versions.js
+
+      - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
+        run: yarn install
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'tools platform-tools build-tools;36.0.0 platforms;android-36 ndk;27.1.12297006'
+
+      - name: Build library
+        run: yarn prepare
+
+      - name: Build Android
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+        run: |
+          cd example
+          yarn build:android
+
+  test-ios:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rn: '0.80.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.82.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+          - rn: '0.83.0'
+            react: '19.2.0'
+            cli: '20.0.0'
+
+    env:
+      RCT_USE_RN_DEP: ${{ matrix.rn >= '0.81' && '1' || '' }}
+      RCT_USE_PREBUILT_RNCORE: ${{ matrix.rn >= '0.81' && '1' || '' }}
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Override RN stack for ${{ matrix.rn }}
+        env:
+          RN_VERSION: ${{ matrix.rn }}
+          REACT_VERSION: ${{ matrix.react }}
+          CLI_VERSION: ${{ matrix.cli }}
+        run: node scripts/override-rn-versions.js
+
+      - name: Install
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
+        run: yarn install
+
+      - name: Build library
+        run: yarn prepare
+
+      - name: Pod install
+        run: |
+          cd example
+          bundle install
+          bundle exec pod install --project-directory=ios
+
+      - name: Build iOS
+        run: |
+          cd example
+          yarn build:ios

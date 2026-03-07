@@ -2,6 +2,8 @@
 
 Contributions are always welcome, no matter how large or small!
 
+[CI/CD настройка →](.github/CICD.md)
+
 We want this community to be friendly and respectful to each other. Please follow it in all your interactions with the project. Before contributing, please read the [code of conduct](./CODE_OF_CONDUCT.md).
 
 ## Development workflow
@@ -106,6 +108,21 @@ To publish new versions, run the following:
 yarn release
 ```
 
+
+### Testing multiple React Native versions
+
+CI runs against RN 0.72, 0.74, 0.76, 0.78, 0.80, 0.82, 0.83 (scripts/override-rn-versions.js) (see `.github/workflows/test-rn-versions.yml`). All use New Arch.
+
+To test locally with a specific RN version:
+
+```sh
+cd example
+# Edit package.json: set "react-native" and all "@react-native/*" to desired version (e.g. 0.76.6)
+yarn install
+cd ..
+yarn prepare
+cd example && yarn android   # or yarn ios
+```
 
 ### Scripts
 

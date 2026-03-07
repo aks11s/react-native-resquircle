@@ -1,35 +1,61 @@
+import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   buildBoxShadow,
-  ResquircleButton,
-  ResquircleView,
+  SquircleButton,
+  SquircleView,
 } from 'react-native-resquircle';
 
 export default function App() {
   const boxShadow = buildBoxShadow([
     { x: 0, y: 2, blur: 0, spread: 10, color: 'rgb(255, 234, 0)', opacity: 12 },
-    { x: 0, y: 7, blur: 0, spread: 10, color: 'rgb(255 , 255 , 0)', opacity: 10 },
-    { x: 0, y: 16, blur: 0, spread: 10, color: 'rgb(255 , 255 , 0)', opacity: 6 },
-    { x: 0, y: 29, blur: 0, spread: 10, color: 'rgb(255 , 255 , 0)', opacity: 2 },
-    { x: 0, y: 46, blur: 0, spread: 10, color: 'rgb(255 , 255 , 0)', opacity: 0 },
+    {
+      x: 0,
+      y: 7,
+      blur: 0,
+      spread: 10,
+      color: 'rgb(255 , 255 , 0)',
+      opacity: 10,
+    },
+    {
+      x: 0,
+      y: 16,
+      blur: 0,
+      spread: 10,
+      color: 'rgb(255 , 255 , 0)',
+      opacity: 6,
+    },
+    {
+      x: 0,
+      y: 29,
+      blur: 0,
+      spread: 10,
+      color: 'rgb(255 , 255 , 0)',
+      opacity: 2,
+    },
+    {
+      x: 0,
+      y: 46,
+      blur: 0,
+      spread: 10,
+      color: 'rgb(255 , 255 , 0)',
+      opacity: 0,
+    },
   ]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.sectionTitle}>Basic</Text>
-      <ResquircleView 
-      cornerSmoothing={1} 
-      
-      style={[styles.card, { boxShadow }]}>
-        <Text style={styles.title}>ResquircleView</Text>
+      <SquircleView cornerSmoothing={1} style={[styles.card, { boxShadow }]}>
+        <Text style={styles.title}>SquircleView</Text>
         <Text style={styles.subtitle}>Native iOS + Android</Text>
-      </ResquircleView>
+      </SquircleView>
 
       <Text style={styles.sectionTitle}>Overflow hidden (clip)</Text>
-      <ResquircleView
+      <SquircleView
         cornerSmoothing={1}
         overflow="hidden"
-        style={[styles.card, { backgroundColor: 'rgb(255, 255, 255)', boxShadow} ]}
+        style={[styles.card, styles.overflowCardWhite, { boxShadow }]}
       >
         <View style={styles.overflowRow}>
           <View style={styles.overflowBlob} />
@@ -38,44 +64,44 @@ export default function App() {
         <Text style={styles.subtitle}>
           This big circle should be clipped by squircle.
         </Text>
-      </ResquircleView>
+      </SquircleView>
 
       <Text style={styles.sectionTitle}>Button</Text>
-      <ResquircleButton
-       overflow='hidden'
+      <SquircleButton
+        overflow="hidden"
         cornerSmoothing={1}
-        style={[styles.button , {boxShadow}]}
+        style={[styles.button, { boxShadow }]}
       >
         {/* <View style={{backgroundColor: 'red', width: 400 , height: 300 , }}/> */}
-        <Text style={styles.buttonText}>ResquircleButton</Text>
-      </ResquircleButton>
+        <Text style={styles.buttonText}>SquircleButton</Text>
+      </SquircleButton>
 
       <Text style={styles.sectionTitle}>Smoothing</Text>
       <View style={styles.row}>
-        <ResquircleView
+        <SquircleView
           cornerSmoothing={0}
-          style={[styles.smoothingBox, { backgroundColor: '#4CAF50' }]}
+          style={[styles.smoothingBox, styles.smoothing0]}
         >
           <Text style={styles.smoothingText}>0</Text>
-        </ResquircleView>
-        <ResquircleView
+        </SquircleView>
+        <SquircleView
           cornerSmoothing={0.1}
-          style={[styles.smoothingBox, { backgroundColor: '#2196F3' }]}
+          style={[styles.smoothingBox, styles.smoothing01]}
         >
           <Text style={styles.smoothingText}>0.1</Text>
-        </ResquircleView>
-        <ResquircleView
+        </SquircleView>
+        <SquircleView
           cornerSmoothing={0.5}
-          style={[styles.smoothingBox, { backgroundColor: '#FF9800' }]}
+          style={[styles.smoothingBox, styles.smoothing05]}
         >
           <Text style={styles.smoothingText}>0.5</Text>
-        </ResquircleView>
-        <ResquircleView
+        </SquircleView>
+        <SquircleView
           cornerSmoothing={1}
-          style={[styles.smoothingBox, { backgroundColor: '#F44336' }]}
+          style={[styles.smoothingBox, styles.smoothing1]}
         >
           <Text style={styles.smoothingText}>1</Text>
-        </ResquircleView>
+        </SquircleView>
       </View>
     </ScrollView>
   );
@@ -151,6 +177,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
   },
+  overflowCardWhite: {
+    backgroundColor: 'rgb(255, 255, 255)',
+  },
   smoothingBox: {
     width: 80,
     height: 80,
@@ -158,6 +187,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  smoothing0: { backgroundColor: '#4CAF50' },
+  smoothing01: { backgroundColor: '#2196F3' },
+  smoothing05: { backgroundColor: '#FF9800' },
+  smoothing1: { backgroundColor: '#F44336' },
   smoothingText: {
     fontSize: 14,
     fontWeight: '700',

@@ -11,45 +11,39 @@ import {
 
 import NativeResquircleView from './ResquircleViewNativeComponent';
 import type {
-  ResquircleButtonProps,
-  ResquircleViewProps,
+  SquircleButtonProps,
+  SquircleViewProps,
 } from './ResquircleView.types';
 
 const DEFAULT_CORNER_SMOOTHING = 0.6;
 
-export const ResquircleView = React.forwardRef<
-  View,
-  ResquircleViewProps
->((props, ref) => {
-  const { children } = props;
-  const { nativeProps, contentStyle, restProps } =
-    useResquircleProps(props);
-
-  return (
-    <NativeResquircleView
-      ref={ref}
-      {...nativeProps}
-      style={contentStyle}
-      {...restProps}
-    >
-      {children}
-    </NativeResquircleView>
-  );
-});
-
-ResquircleView.displayName = 'ResquircleView';
-
-export const ResquircleButton = React.forwardRef<View, ResquircleButtonProps>(
+export const SquircleView = React.forwardRef<View, SquircleViewProps>(
   (props, ref) => {
-    const { children, activeOpacity = 0.85 } = props;
-    const { nativeProps, contentStyle, restProps } =
-      useResquircleProps(props);
+    const { children } = props;
+    const { nativeProps, contentStyle, restProps } = useResquircleProps(props);
 
     return (
-      <Pressable
+      <NativeResquircleView
         ref={ref}
+        {...nativeProps}
+        style={contentStyle}
         {...restProps}
       >
+        {children}
+      </NativeResquircleView>
+    );
+  }
+);
+
+SquircleView.displayName = 'SquircleView';
+
+export const SquircleButton = React.forwardRef<View, SquircleButtonProps>(
+  (props, ref) => {
+    const { children, activeOpacity = 0.85 } = props;
+    const { nativeProps, contentStyle, restProps } = useResquircleProps(props);
+
+    return (
+      <Pressable ref={ref} {...restProps}>
         {({ pressed }) => (
           <NativeResquircleView
             {...nativeProps}
@@ -63,11 +57,9 @@ export const ResquircleButton = React.forwardRef<View, ResquircleButtonProps>(
   }
 );
 
-ResquircleButton.displayName = 'ResquircleButton';
+SquircleButton.displayName = 'SquircleButton';
 
-const useResquircleProps = (
-  props: ResquircleViewProps | ResquircleButtonProps
-) => {
+const useResquircleProps = (props: SquircleViewProps | SquircleButtonProps) => {
   const { cornerSmoothing, overflow, style, ...restProps } = props as any;
 
   const flattenedStyle = style ? StyleSheet.flatten(style) : undefined;
@@ -258,8 +250,7 @@ const useResquircleProps = (
       squircleBottomRightRadius: resolvedCornerRadii.br,
       squircleBottomLeftRadius: resolvedCornerRadii.bl,
       squircleBorderWidth: flattenedStyle?.borderWidth ?? 0,
-      squircleBackgroundColor:
-        flattenedStyle?.backgroundColor ?? 'transparent',
+      squircleBackgroundColor: flattenedStyle?.backgroundColor ?? 'transparent',
       squircleBorderColor: flattenedStyle?.borderColor ?? 'transparent',
       cornerSmoothing:
         cornerSmoothing !== undefined
@@ -340,11 +331,13 @@ const colorToRgbaString = (color: ColorValue | undefined, opacity?: number) => {
   if (color == null) return undefined;
   const processed = processColor(color);
   if (processed == null) return undefined;
+  /* eslint-disable no-bitwise */
   const argb = (processed as number) >>> 0;
   const a = (argb >>> 24) & 0xff;
   const r = (argb >>> 16) & 0xff;
   const g = (argb >>> 8) & 0xff;
   const b = argb & 0xff;
+  /* eslint-enable no-bitwise */
   const baseAlpha = a / 255;
   const finalAlpha =
     typeof opacity === 'number'
@@ -400,22 +393,22 @@ const rnBoxShadowValueToCssPart = (
     typeof v.offsetX === 'number'
       ? v.offsetX
       : typeof v.offset?.width === 'number'
-        ? v.offset.width
-        : 0;
+      ? v.offset.width
+      : 0;
   const offsetY =
     typeof v.offsetY === 'number'
       ? v.offsetY
       : typeof v.offset?.height === 'number'
-        ? v.offset.height
-        : 0;
+      ? v.offset.height
+      : 0;
   const blur = typeof v.blurRadius === 'number' ? v.blurRadius : 0;
   const spread =
     typeof v.spreadDistance === 'number'
       ? v.spreadDistance
       : // Some typed libs use `spread` instead of `spreadDistance`
-        typeof (v as any).spread === 'number'
-        ? (v as any).spread
-        : 0;
+      typeof (v as any).spread === 'number'
+      ? (v as any).spread
+      : 0;
 
   const rgba = colorToRgbaString(v.color ?? fallbackColor ?? 'black');
   if (!rgba) return undefined;
