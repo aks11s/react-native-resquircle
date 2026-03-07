@@ -168,7 +168,7 @@ private class SplitDelegate(
     if (view is ResquircleView) specificDelegate.setProperty(view, propName, value)
   }
 
-  override fun receiveCommand(view: ReactViewGroup, commandName: String, args: ReadableArray) {
+  override fun receiveCommand(view: ReactViewGroup, commandName: String, args: ReadableArray?) {
     baseDelegate.receiveCommand(view, commandName, args)
     if (view is ResquircleView) specificDelegate.receiveCommand(view, commandName, args)
   }
