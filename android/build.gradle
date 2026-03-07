@@ -100,6 +100,11 @@ android {
 
   sourceSets {
     main {
+      if (REACT_NATIVE_MINOR_VERSION >= 82) {
+        java.srcDirs += ["src/fromRn82/java"]
+      } else {
+        java.srcDirs += ["src/beforeRn82/java"]
+      }
       if (REACT_NATIVE_MINOR_VERSION < 83) {
         java.srcDirs += ["src/beforeRn83/java"]
       } else {
