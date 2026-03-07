@@ -6,22 +6,23 @@
 // eslint-disable-next-line @react-native/no-deep-imports -- needed for RN 0.73–0.78
 import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
 import { type ColorValue, type ViewProps } from 'react-native';
+import type { Float } from './CodegenTypes';
 
 export interface NativeResquircleViewProps extends ViewProps {
   squircleBackgroundColor?: ColorValue;
   squircleBorderColor?: ColorValue;
-  squircleBorderWidth?: number;
-  borderRadius?: number;
-  squircleTopLeftRadius?: number;
-  squircleTopRightRadius?: number;
-  squircleBottomRightRadius?: number;
-  squircleBottomLeftRadius?: number;
-  cornerSmoothing?: number;
+  squircleBorderWidth?: Float;
+  borderRadius?: Float;
+  squircleTopLeftRadius?: Float;
+  squircleTopRightRadius?: Float;
+  squircleBottomRightRadius?: Float;
+  squircleBottomLeftRadius?: Float;
+  cornerSmoothing?: Float;
   squircleBoxShadow?: string;
   clipContent?: boolean;
   squircleOutlineColor?: ColorValue;
-  squircleOutlineWidth?: number;
-  squircleOutlineOffset?: number;
+  squircleOutlineWidth?: Float;
+  squircleOutlineOffset?: Float;
   squircleOutlineStyle?: string;
   color?: ColorValue;
 }
