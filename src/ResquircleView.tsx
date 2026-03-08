@@ -59,12 +59,18 @@ export const SquircleButton = React.forwardRef<View, SquircleButtonProps>(
 
 SquircleButton.displayName = 'SquircleButton';
 
+type FlattenedStyleWithOverflow = ReturnType<typeof StyleSheet.flatten> & {
+  overflow?: 'visible' | 'hidden';
+};
+
 const useResquircleProps = (props: SquircleViewProps | SquircleButtonProps) => {
   const { cornerSmoothing, overflow, style, ...restProps } = props as any;
 
   const flattenedStyle = style ? StyleSheet.flatten(style) : undefined;
   const resolvedOverflow =
-    overflow ?? (flattenedStyle as any)?.overflow ?? 'visible';
+    overflow ??
+    (flattenedStyle as FlattenedStyleWithOverflow | undefined)?.overflow ??
+    'visible';
 
   const {
     // border radii
@@ -205,7 +211,7 @@ const useResquircleProps = (props: SquircleViewProps | SquircleButtonProps) => {
       return _paddingValue;
     };
 
-    const result: any = {};
+    const result: Record<string, DimensionValue> = {};
     if (padding !== undefined) result.padding = calculatePadding(padding);
     if (paddingVertical !== undefined)
       result.paddingVertical = calculatePadding(paddingVertical);
@@ -351,6 +357,8 @@ type RNBoxShadowValue = {
   offsetY?: number;
   blurRadius?: number;
   spreadDistance?: number;
+  /** Some typed libs use `spread` instead of `spreadDistance` */
+  spread?: number;
   color?: ColorValue;
   inset?: boolean;
   // Some RN internals/typed usages may pass offset object.
@@ -405,9 +413,8 @@ const rnBoxShadowValueToCssPart = (
   const spread =
     typeof v.spreadDistance === 'number'
       ? v.spreadDistance
-      : // Some typed libs use `spread` instead of `spreadDistance`
-      typeof (v as any).spread === 'number'
-      ? (v as any).spread
+      : typeof v.spread === 'number'
+      ? v.spread
       : 0;
 
   const rgba = colorToRgbaString(v.color ?? fallbackColor ?? 'black');
