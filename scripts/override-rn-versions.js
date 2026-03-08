@@ -56,13 +56,9 @@ function resolvePackageVersion(packageName, preferredVersion) {
   }
 }
 
-if (
-  RN_VERSION.startsWith('0.72') ||
-  RN_VERSION.startsWith('0.73') ||
-  RN_VERSION.startsWith('0.74') ||
-  RN_VERSION.startsWith('0.75')
-) {
-  console.error('RN 0.76+ required. Your project uses an unsupported version.');
+const minor = parseInt(RN_VERSION.split('.')[1], 10);
+if (minor < 80) {
+  console.error('RN 0.80+ required. Your project uses an unsupported version.');
   process.exit(1);
 }
 

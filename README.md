@@ -4,11 +4,11 @@
 
 High-performance native squircle (superellipse) implementation for React Native on iOS and Android.
 
-**Requires React Native 0.76+.** The library auto-detects your RN version and adapts the native build config (Gradle, Kotlin, iOS deployment target) accordingly.
+**Requires React Native 0.80+.** The library auto-detects your RN version and adapts the native build config (Gradle, Kotlin, iOS deployment target) accordingly.
 
 ## Requirements
 
-- React Native **0.76+**
+- React Native **0.80+**
 - iOS 15.1+ / Android API 24+
 
 The library auto-detects your RN version and uses compatible Gradle/Kotlin settings.

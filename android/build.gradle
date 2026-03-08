@@ -40,8 +40,8 @@ def getReactNativeMinorVersion() {
 
 def REACT_NATIVE_MINOR_VERSION = getReactNativeMinorVersion()
 
-if (REACT_NATIVE_MINOR_VERSION < 76) {
-  throw new GradleException("[Resquircle] React Native 0.76+ required. Detected: ${getReactNativeVersion()}")
+if (REACT_NATIVE_MINOR_VERSION < 80) {
+  throw new GradleException("[Resquircle] React Native 0.80+ required. Detected: ${getReactNativeVersion()}")
 }
 
 ext.Resquircle = [
