@@ -10,7 +10,7 @@
     "build:ios": "react-native build-ios --mode Debug --extra-params \"-destination 'generic/platform=iOS Simulator,name=iPhone 15'\""
   },
   "dependencies": {
-    "react": "19.2.0",
+    "react": "19.2.4",
     "react-native": "0.80",
     "react-native-resquircle": "workspace:*"
   },
