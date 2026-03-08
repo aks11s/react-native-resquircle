@@ -6,7 +6,6 @@
   "types": "./lib/typescript/index.d.ts",
   "exports": {
     ".": {
-      "source": "./src/index.tsx",
       "types": "./lib/typescript/index.d.ts",
       "default": "./lib/module/index.js"
     },
@@ -30,6 +29,7 @@
     "example": "yarn workspace react-native-resquircle-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
+    "prepublishOnly": "node scripts/prepublish-only.js",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
@@ -117,7 +117,7 @@
   "codegenConfig": {
     "name": "ResquircleViewSpec",
     "type": "all",
-    "jsSrcsDir": "src",
+    "jsSrcsDir": "lib/module",
     "android": {
       "javaPackageName": "com.resquircle"
     },
