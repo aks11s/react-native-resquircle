@@ -56,10 +56,9 @@ function resolvePackageVersion(packageName, preferredVersion) {
   }
 }
 
-if (RN_VERSION.startsWith('0.72')) {
-  console.error(
-    'RN 0.72 is not supported: @react-native/babel-preset was introduced in 0.73'
-  );
+const minor = parseInt(RN_VERSION.split('.')[1], 10);
+if (minor < 80) {
+  console.error('RN 0.80+ required. Your project uses an unsupported version.');
   process.exit(1);
 }
 
@@ -76,8 +75,7 @@ packageJson.devDependencies['@react-native/babel-preset'] = babelPresetVersion;
 fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2));
 console.log('✅ package.json updated successfully');
 
-const examplePath = 'example/package.json';
-if (fs.existsSync(examplePath)) {
+function updateExamplePackage(examplePath) {
   const exampleJson = JSON.parse(fs.readFileSync(examplePath, 'utf8'));
 
   const deps = exampleJson.dependencies || {};
@@ -110,5 +108,10 @@ if (fs.existsSync(examplePath)) {
   exampleJson.devDependencies = devDeps;
 
   fs.writeFileSync(examplePath, JSON.stringify(exampleJson, null, 2));
+}
+
+const examplePath = 'example/package.json';
+if (fs.existsSync(examplePath)) {
+  updateExamplePackage(examplePath);
   console.log('✅ example/package.json updated successfully');
 }

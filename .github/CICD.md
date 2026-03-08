@@ -5,7 +5,7 @@
 | Workflow | Триггер | Назначение |
 |----------|---------|------------|
 | `ci.yml` | push/PR в `main` | Lint, typecheck, тесты, сборка либы, example (Android + iOS) |
-| `test-rn-versions.yml` | push/PR в `main` | Сборка example на RN 0.72, 0.74, 0.76, 0.78, 0.80, 0.82, 0.83 |
+| `test-rn-versions.yml` | push/PR в `main` | Сборка example на RN 0.80, 0.82, 0.83 |
 | `publish.yml` | push тега `v*` | Публикация в npm |
 
 ## Секреты (Settings → Secrets and variables → Actions)
