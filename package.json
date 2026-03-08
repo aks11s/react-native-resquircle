@@ -1,6 +1,6 @@
 {
   "name": "react-native-resquircle",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "High-performance native squircle (superellipse) implementation for React Native on iOS and Android",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/index.d.ts",
