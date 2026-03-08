@@ -6,7 +6,6 @@
   "types": "./lib/typescript/index.d.ts",
   "exports": {
     ".": {
-      "source": "./src/index.tsx",
       "types": "./lib/typescript/index.d.ts",
       "default": "./lib/module/index.js"
     },
