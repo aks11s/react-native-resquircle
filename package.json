@@ -117,7 +117,7 @@
   "codegenConfig": {
     "name": "ResquircleViewSpec",
     "type": "all",
-    "jsSrcsDir": "src",
+    "jsSrcsDir": "lib/module",
     "android": {
       "javaPackageName": "com.resquircle"
     },
