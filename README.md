@@ -4,8 +4,6 @@
 
 ![React Native reSquircle](assets/hero.png)
 
-Native **squircle** (superellipse) components for React Native — the same smooth corners you see in iOS app icons.
-
 ## What is a squircle?
 
 A squircle sits between a square and a circle. Unlike `borderRadius`, it uses a superellipse formula (`|x|^n + |y|^n = r^n`) so corners look smoother and more natural. This library draws it natively on iOS and Android via Fabric.
@@ -23,13 +21,19 @@ A squircle sits between a square and a circle. Unlike `borderRadius`, it uses a 
 
 ## 📦 Installation
 
+**npm**
+
 ```sh
 npm install react-native-resquircle
-# or
+```
+
+**yarn**
+
+```sh
 yarn add react-native-resquircle
 ```
 
-### Setup
+### ⚙️ Setup
 
 | Platform | Command |
 |----------|---------|
