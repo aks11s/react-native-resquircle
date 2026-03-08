@@ -29,6 +29,7 @@
     "example": "yarn workspace react-native-resquircle-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
+    "prepublishOnly": "del-cli 'lib/**/*.d.ts.map'",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
