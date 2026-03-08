@@ -1,5 +1,4 @@
-import React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
 
 import { SquircleView, SquircleButton, buildBoxShadow } from '../index';
 
@@ -38,7 +37,7 @@ describe('buildBoxShadow', () => {
 
 describe('SquircleView', () => {
   it('renders without crashing', () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(
         <SquircleView style={{ backgroundColor: 'blue' }} />
@@ -48,7 +47,7 @@ describe('SquircleView', () => {
   });
 
   it('accepts cornerSmoothing and overflow props', () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(
         <SquircleView cornerSmoothing={0.8} overflow="hidden" />
@@ -60,7 +59,7 @@ describe('SquircleView', () => {
 
 describe('SquircleButton', () => {
   it('renders without crashing', () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(<SquircleButton>Press</SquircleButton>);
     });
@@ -68,7 +67,7 @@ describe('SquircleButton', () => {
   });
 
   it('accepts activeOpacity', () => {
-    let tree: TestRenderer.ReactTestRenderer;
+    let tree: ReactTestRenderer;
     act(() => {
       tree = TestRenderer.create(
         <SquircleButton activeOpacity={0.7}>Press</SquircleButton>
