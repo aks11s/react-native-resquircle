@@ -4,6 +4,10 @@ description: Setup Node.js and install dependencies
 runs:
   using: composite
   steps:
+    - name: Enable Corepack
+      run: corepack enable
+      shell: bash
+
     - name: Setup Node.js
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
@@ -33,4 +37,4 @@ runs:
         path: |
           **/node_modules
           .yarn/install-state.gz
-        key: ${{ steps.yarn-cache.outputs.cache-primary-key }}
+        key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock', 'package.json', 'example/package.json') }}

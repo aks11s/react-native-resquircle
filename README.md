@@ -21,11 +21,6 @@ A squircle sits between a square and a circle. Unlike `borderRadius`, it uses a 
 
 ![Features overview](assets/features-screen.png)
 
-## 📋 Requirements
-
-- React Native **0.80+**
-- iOS 15.1+ / Android API 24+
-
 ## 📦 Installation
 
 ```sh
@@ -34,7 +29,18 @@ npm install react-native-resquircle
 yarn add react-native-resquircle
 ```
 
-No extra setup — autolinking handles native linking.
+### Setup
+
+| Platform | Command |
+|----------|---------|
+| iOS | `cd ios && pod install` |
+| Expo | `expo prebuild` |
+| Android | — |
+
+## 📋 Requirements
+
+- React Native **0.80+**
+- iOS 15.1+ / Android API 24+
 
 ## 🚀 Quick start
 
