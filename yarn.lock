@@ -10150,7 +10150,7 @@ __metadata:
     typescript: "npm:^5.9.2"
   peerDependencies:
     react: "*"
-    react-native: ">=0.76.0"
+    react-native: ">=0.80.0"
   peerDependenciesMeta:
     react-native:
       optional: false
