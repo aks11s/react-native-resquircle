@@ -1,0 +1,12 @@
+src
+assets
+example
+.git
+.github
+node_modules
+*.log
+
+# build artifacts (consumer builds these)
+android/build
+android/generated
+ios/build
